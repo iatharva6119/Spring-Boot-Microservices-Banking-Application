@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: sequence-generator
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/sequence_generator
+    username: root
+    password: Netcracker@123
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+eureka:
+  client:
+    service-url:
+      defaultZone: http://service-registry:8761/eureka/
+
+server:
+  port: 8083
+
+# ============================================================
+# Performance Engineering Monitoring — Actuator + Prometheus
+# Spring Boot 2.7.x syntax (management.metrics.export.prometheus)
+# ============================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: ${spring.application.name}

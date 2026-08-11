@@ -1,0 +1,231 @@
+groups:
+  # ==========================================================
+  # Banking Application — Performance Engineering Alert Rules
+  # Spring Boot 2.7.x / Micrometer / Prometheus
+  # ==========================================================
+  # Thresholds are conservative defaults — tune to your SLA.
+  # All durations use [for:] to avoid flapping on brief spikes.
+  # ==========================================================
+
+  - name: banking.service.availability
+    interval: 30s
+    rules:
+      # --------------------------------------------------------
+      # ALERT: Service DOWN
+      # --------------------------------------------------------
+      - alert: ServiceDown
+        expr: up{job=~"api-gateway|account-service|user-service|sequence-generator|transaction-service|fund-transfer|service-registry"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is DOWN"
+          description: "Prometheus cannot scrape {{ $labels.job }} at {{ $labels.instance }}. The service may be crashed or unreachable. Verify with: docker ps"
+          runbook: "Check docker logs {{ $labels.job }}"
+
+  - name: banking.latency
+    interval: 30s
+    rules:
+      # --------------------------------------------------------
+      # ALERT: High p95 Latency
+      # Default threshold: 2 seconds sustained for 5 minutes
+      # --------------------------------------------------------
+      - alert: HighP95Latency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_server_requests_seconds_bucket{uri!~"/actuator.*"}[5m])) by (application, le)
+          ) > 2.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High p95 latency on {{ $labels.application }}"
+          description: "p95 response time for {{ $labels.application }} is {{ $value | humanizeDuration }} (threshold: 2s). Check CPU, GC, DB connection pool."
+
+      # --------------------------------------------------------
+      # ALERT: Critical p99 Latency
+      # Default threshold: 5 seconds sustained for 5 minutes
+      # --------------------------------------------------------
+      - alert: CriticalP99Latency
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(http_server_requests_seconds_bucket{uri!~"/actuator.*"}[5m])) by (application, le)
+          ) > 5.0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical p99 latency on {{ $labels.application }}"
+          description: "p99 response time for {{ $labels.application }} is {{ $value | humanizeDuration }}. Immediate investigation required."
+
+  - name: banking.errors
+    interval: 30s
+    rules:
+      # --------------------------------------------------------
+      # ALERT: High 5xx Error Rate
+      # Default threshold: >5% of requests are 5xx for 3 minutes
+      # --------------------------------------------------------
+      - alert: High5xxErrorRate
+        expr: |
+          sum(rate(http_server_requests_seconds_count{status=~"5..", uri!~"/actuator.*"}[1m])) by (application)
+          /
+          sum(rate(http_server_requests_seconds_count{uri!~"/actuator.*"}[1m])) by (application)
+          > 0.05
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High 5xx error rate on {{ $labels.application }}"
+          description: "{{ $labels.application }} has a 5xx error rate of {{ $value | humanizePercentage }} (threshold: 5%). Check application logs."
+
+      # --------------------------------------------------------
+      # ALERT: Critical Error Rate
+      # Default threshold: >20% errors for 2 minutes
+      # --------------------------------------------------------
+      - alert: CriticalErrorRate
+        expr: |
+          sum(rate(http_server_requests_seconds_count{status=~"5..", uri!~"/actuator.*"}[1m])) by (application)
+          /
+          sum(rate(http_server_requests_seconds_count{uri!~"/actuator.*"}[1m])) by (application)
+          > 0.20
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical error rate on {{ $labels.application }}"
+          description: "{{ $labels.application }} error rate is {{ $value | humanizePercentage }}. Service degraded."
+
+  - name: banking.cpu
+    interval: 30s
+    rules:
+      # --------------------------------------------------------
+      # ALERT: High Process CPU
+      # Default threshold: >80% for 5 minutes
+      # --------------------------------------------------------
+      - alert: HighProcessCPU
+        expr: process_cpu_usage{application=~".+"} > 0.80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.application }}"
+          description: "{{ $labels.application }} process CPU is {{ $value | humanizePercentage }} (threshold: 80%). Check thread count, GC activity, and workload."
+
+      # --------------------------------------------------------
+      # ALERT: Critical Process CPU
+      # Default threshold: >95% for 3 minutes
+      # --------------------------------------------------------
+      - alert: CriticalProcessCPU
+        expr: process_cpu_usage{application=~".+"} > 0.95
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical CPU usage on {{ $labels.application }}"
+          description: "{{ $labels.application }} process CPU is {{ $value | humanizePercentage }}. Service may become unresponsive."
+
+  - name: banking.memory
+    interval: 30s
+    rules:
+      # --------------------------------------------------------
+      # ALERT: High JVM Heap Utilization
+      # Default threshold: >85% of max heap for 5 minutes
+      # --------------------------------------------------------
+      - alert: HighJVMHeapUtilization
+        expr: |
+          sum(jvm_memory_used_bytes{area="heap"}) by (application)
+          /
+          sum(jvm_memory_max_bytes{area="heap"}) by (application)
+          > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High JVM heap utilization on {{ $labels.application }}"
+          description: "{{ $labels.application }} JVM heap is {{ $value | humanizePercentage }} full (threshold: 85%). GC pressure may increase. Consider adjusting -Xmx or investigating memory leaks."
+
+      # --------------------------------------------------------
+      # ALERT: Critical JVM Heap Utilization (OOM risk)
+      # Default threshold: >95% for 2 minutes
+      # --------------------------------------------------------
+      - alert: CriticalJVMHeapUtilization
+        expr: |
+          sum(jvm_memory_used_bytes{area="heap"}) by (application)
+          /
+          sum(jvm_memory_max_bytes{area="heap"}) by (application)
+          > 0.95
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical JVM heap on {{ $labels.application }} — OOM risk"
+          description: "{{ $labels.application }} JVM heap is {{ $value | humanizePercentage }} full. OutOfMemoryError imminent. Restart may be required."
+
+  - name: banking.gc
+    interval: 30s
+    rules:
+      # --------------------------------------------------------
+      # ALERT: High GC Pause Time
+      # Default threshold: >200ms avg GC pause rate for 5 minutes
+      # --------------------------------------------------------
+      - alert: HighGCPauseTime
+        expr: |
+          sum(rate(jvm_gc_pause_seconds_sum[1m])) by (application)
+          /
+          sum(rate(jvm_gc_pause_seconds_count[1m])) by (application)
+          > 0.200
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High GC pause time on {{ $labels.application }}"
+          description: "{{ $labels.application }} average GC pause is {{ $value | humanizeDuration }} (threshold: 200ms). This may cause latency spikes. Check heap sizing and GC policy."
+
+  - name: banking.database
+    interval: 30s
+    rules:
+      # --------------------------------------------------------
+      # ALERT: High DB Connection Pool Utilization
+      # Default threshold: >80% of max connections for 3 minutes
+      # --------------------------------------------------------
+      - alert: HighDBConnectionPoolUtilization
+        expr: |
+          hikaricp_connections_active
+          /
+          hikaricp_connections_max
+          > 0.80
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High DB connection pool utilization on {{ $labels.application }}"
+          description: "{{ $labels.application }} is using {{ $value | humanizePercentage }} of its HikariCP connection pool (threshold: 80%). Connection exhaustion may cause request failures."
+
+      # --------------------------------------------------------
+      # ALERT: DB Connection Pool Exhaustion
+      # Default threshold: >95% utilization for 1 minute
+      # --------------------------------------------------------
+      - alert: DBConnectionPoolExhaustion
+        expr: |
+          hikaricp_connections_active
+          /
+          hikaricp_connections_max
+          > 0.95
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "DB connection pool near exhaustion on {{ $labels.application }}"
+          description: "{{ $labels.application }} connection pool is {{ $value | humanizePercentage }} full. New requests may fail with connection timeout errors."
+
+      # --------------------------------------------------------
+      # ALERT: DB Connection Timeouts Increasing
+      # --------------------------------------------------------
+      - alert: DBConnectionTimeouts
+        expr: rate(hikaricp_connections_timeout_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "DB connection timeouts on {{ $labels.application }}"
+          description: "{{ $labels.application }} is experiencing database connection timeouts at {{ $value }} per second. Connection pool may be exhausted."

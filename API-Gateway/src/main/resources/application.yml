@@ -1,0 +1,87 @@
+server:
+  port: 8080
+
+app:
+  config:
+    keycloak:
+      url: http://localhost:8571/
+      realm: banking-service
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      routes:
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/users/**
+        - id: fund-transfer-service
+          uri: lb://fund-transfer-service
+          predicates:
+            - Path=/api/fund-transfers/**
+        - id: account-service
+          uri: lb://account-service
+          predicates:
+            - Path=/accounts/**
+        - id: sequence-generator
+          uri: lb://sequence-generator
+          predicates:
+            - Path=/sequence/**
+        - id: transaction-service
+          uri: lb://transaction-service
+          predicates:
+            - Path=/transactions/**
+        - id: fund-transfer-service
+          uri: lb://fund-transfer-service
+          predicates:
+            - Path=/fund-transfers/**
+
+  security:
+    oauth2:
+      client:
+        provider:
+          keycloak:
+            token-uri: ${app.config.keycloak.url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/token
+            authorization-uri: ${app.config.keycloak.url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/auth
+            user-name-attribute: preferred_username
+            user-info-uri: ${app.config.keycloak.url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/userinfo
+            jwk-set-uri: ${app.config.keycloak.url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/certs
+            user-info-authentication-method: header
+        registration:
+          banking-service-client:
+            provider: keycloak
+            client-id: banking-service-client
+            client-secret: 7ZXjz5ZBz9EzoBBr1reNOVfmd2XqQSwJ
+            authorization-grant-type: authorization_code
+            redirect-uri: http://localhost:8571/login/oauth2/code/keycloak
+            scope: openid
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${app.config.keycloak.url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/certs
+
+# ============================================================
+# Performance Engineering Monitoring — Actuator + Prometheus
+# Spring Boot 2.7.x / Spring Cloud Gateway (WebFlux) syntax
+# ============================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: ${spring.application.name}

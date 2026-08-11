@@ -1,0 +1,56 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: user-service
+    bad_request: 400
+    conflict: 409
+    success: 200
+    not_found: 404
+
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DB_NAME:user_service}
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:Netcracker@123}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://service-registry:8761/eureka/
+
+
+app:
+  config:
+    keycloak:
+      server-url: ${APP_CONFIG_KEYCLOAK_SERVER_URL:http://localhost:8571}
+      realm: banking-service
+      client-id: banking-service-api-client
+      client-secret: ooZV25AjCo15w8A7Qum50VjrTbkie0EE
+
+# ============================================================
+# Performance Engineering Monitoring — Actuator + Prometheus
+# Spring Boot 2.7.x syntax (management.metrics.export.prometheus)
+# ============================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: ${spring.application.name}

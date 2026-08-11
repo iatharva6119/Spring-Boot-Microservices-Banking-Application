@@ -1,0 +1,191 @@
+version: '3.8'
+
+services:
+  service-registry:
+    build:
+      context: ./Service-Registry
+    container_name: service-registry
+    ports:
+      - "8761:8761"
+    networks:
+      - banking-network
+
+  api-gateway:
+    build:
+      context: ./API-Gateway
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
+      - APP_CONFIG_KEYCLOAK_URL=http://host.docker.internal:8571/
+    networks:
+      - banking-network
+    depends_on:
+      - service-registry
+
+  user-service:
+    build:
+      context: ./User-Service
+    container_name: user-service
+    ports:
+      - "8082:8082"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
+      - MYSQL_HOST=host.docker.internal
+      - APP_CONFIG_KEYCLOAK_SERVER_URL=http://host.docker.internal:8571
+    networks:
+      - banking-network
+    depends_on:
+      - service-registry
+
+  account-service:
+    build:
+      context: ./Account-Service
+    container_name: account-service
+    ports:
+      - "8081:8081"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
+      - SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/account_service
+    networks:
+      - banking-network
+    depends_on:
+      - service-registry
+
+  transaction-service:
+    build:
+      context: ./Transaction-Service
+    container_name: transaction-service
+    ports:
+      - "8084:8084"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
+      - SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/transaction_service
+    networks:
+      - banking-network
+    depends_on:
+      - service-registry
+
+  fund-transfer:
+    build:
+      context: ./Fund-Transfer
+    container_name: fund-transfer
+    ports:
+      - "8085:8085"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
+      - SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/fund_transfer_service
+    networks:
+      - banking-network
+    depends_on:
+      - service-registry
+
+  sequence-generator:
+    build:
+      context: ./Sequence-Generator
+    container_name: sequence-generator
+    ports:
+      - "8083:8083"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
+      - SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/sequence_generator
+    networks:
+      - banking-network
+    depends_on:
+      - service-registry
+
+  # ==========================================================
+  # Performance Engineering Monitoring Stack
+  # Added as an additional layer — no existing services changed
+  # ==========================================================
+
+  # ----------------------------------------------------------
+  # Prometheus — Metrics collection and storage
+  # UI:  http://localhost:9090
+  # ----------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - banking-network
+    depends_on:
+      - service-registry
+      - api-gateway
+      - user-service
+      - account-service
+      - transaction-service
+      - fund-transfer
+      - sequence-generator
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # Grafana — Metrics visualization and dashboards
+  # UI:       http://localhost:3000  (admin / admin)
+  # ----------------------------------------------------------
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/provisioning/dashboards/banking-performance.json
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+    networks:
+      - banking-network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # cAdvisor — Docker container resource metrics
+  # UI:      http://localhost:8089
+  # Metrics: http://localhost:8089/metrics  (scraped by Prometheus)
+  # NOTE: Host port 8089 used — 8080 is already taken by api-gateway
+  # ----------------------------------------------------------
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.2
+    container_name: cadvisor
+    ports:
+      - "8089:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg
+    networks:
+      - banking-network
+    restart: unless-stopped
+
+networks:
+  banking-network:
+    driver: bridge
+
+volumes:
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local

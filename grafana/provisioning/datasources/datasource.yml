@@ -1,0 +1,23 @@
+# ==========================================================
+# Grafana Datasource Provisioning
+# Banking Application — Performance Engineering Monitoring
+# ==========================================================
+# Uses http://prometheus:9090 (Docker service name)
+# NOT http://localhost:9090 (which would fail inside Docker)
+# ==========================================================
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    orgId: 1
+    url: http://prometheus:9090
+    basicAuth: false
+    isDefault: true
+    version: 1
+    editable: false
+    jsonData:
+      timeInterval: "15s"
+      httpMethod: POST

@@ -1,0 +1,8 @@
+.git
+.idea
+*.iml
+logs/
+node_modules/
+README.md
+postman_collection/
+docker-compose.yml

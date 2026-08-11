@@ -1,0 +1,141 @@
+# ==========================================================
+# Prometheus Configuration
+# Banking Application — Performance Engineering Monitoring
+# ==========================================================
+# All targets use Docker service names (NOT localhost)
+# because Prometheus runs inside the banking-network.
+# ==========================================================
+
+global:
+  scrape_interval:     15s   # How frequently to scrape targets
+  evaluation_interval: 15s   # How frequently to evaluate rules
+  scrape_timeout:      10s
+
+  # Default labels added to all time series scraped from this Prometheus
+  external_labels:
+    environment: 'docker-compose'
+    project: 'banking-app'
+
+# ==========================================================
+# Alerting Rules Files (loaded from rules/ directory)
+# ==========================================================
+rule_files:
+  - "rules/*.yml"
+
+# ==========================================================
+# Scrape Configurations
+# ==========================================================
+scrape_configs:
+
+  # ----------------------------------------------------------
+  # Prometheus self-monitoring
+  # ----------------------------------------------------------
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+
+  # ----------------------------------------------------------
+  # Service Registry / Eureka (port 8761)
+  # ----------------------------------------------------------
+  - job_name: 'service-registry'
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 15s
+    static_configs:
+      - targets:
+          - 'service-registry:8761'
+        labels:
+          service: 'service-registry'
+          component: 'infrastructure'
+
+  # ----------------------------------------------------------
+  # API Gateway (port 8080)
+  # ----------------------------------------------------------
+  - job_name: 'api-gateway'
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 15s
+    static_configs:
+      - targets:
+          - 'api-gateway:8080'
+        labels:
+          service: 'api-gateway'
+          component: 'gateway'
+
+  # ----------------------------------------------------------
+  # Account Service (port 8081)
+  # ----------------------------------------------------------
+  - job_name: 'account-service'
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 15s
+    static_configs:
+      - targets:
+          - 'account-service:8081'
+        labels:
+          service: 'account-service'
+          component: 'business'
+
+  # ----------------------------------------------------------
+  # User Service (port 8082)
+  # ----------------------------------------------------------
+  - job_name: 'user-service'
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 15s
+    static_configs:
+      - targets:
+          - 'user-service:8082'
+        labels:
+          service: 'user-service'
+          component: 'business'
+
+  # ----------------------------------------------------------
+  # Sequence Generator (port 8083)
+  # ----------------------------------------------------------
+  - job_name: 'sequence-generator'
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 15s
+    static_configs:
+      - targets:
+          - 'sequence-generator:8083'
+        labels:
+          service: 'sequence-generator'
+          component: 'business'
+
+  # ----------------------------------------------------------
+  # Transaction Service (port 8084)
+  # ----------------------------------------------------------
+  - job_name: 'transaction-service'
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 15s
+    static_configs:
+      - targets:
+          - 'transaction-service:8084'
+        labels:
+          service: 'transaction-service'
+          component: 'business'
+
+  # ----------------------------------------------------------
+  # Fund Transfer Service (port 8085)
+  # ----------------------------------------------------------
+  - job_name: 'fund-transfer'
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 15s
+    static_configs:
+      - targets:
+          - 'fund-transfer:8085'
+        labels:
+          service: 'fund-transfer'
+          component: 'business'
+
+  # ----------------------------------------------------------
+  # cAdvisor — Docker Container Metrics (port 8080 internal)
+  # ----------------------------------------------------------
+  - job_name: 'cadvisor'
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    static_configs:
+      - targets:
+          - 'cadvisor:8080'
+        labels:
+          service: 'cadvisor'
+          component: 'infrastructure'
