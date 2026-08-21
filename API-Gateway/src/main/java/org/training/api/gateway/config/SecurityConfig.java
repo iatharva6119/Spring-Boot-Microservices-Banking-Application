@@ -17,10 +17,9 @@ public class SecurityConfig {
                 //ALLOWING REGISTER API FOR DIRECT ACCESS
                 .pathMatchers("/api/users/register").permitAll()
 
-                .anyExchange().permitAll()
-
+                //.anyExchange().permitAll()
                 //ALL OTHER APIS ARE AUTHENTICATED
-//                .anyExchange().permitAll()
+                .anyExchange().permitAll()
                 .and()
                 .csrf().disable()
                 .oauth2Login()

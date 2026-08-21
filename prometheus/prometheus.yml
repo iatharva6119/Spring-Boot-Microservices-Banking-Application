@@ -7,9 +7,9 @@
 # ==========================================================
 
 global:
-  scrape_interval:     15s   # How frequently to scrape targets
-  evaluation_interval: 15s   # How frequently to evaluate rules
-  scrape_timeout:      10s
+  scrape_interval:     5s   # How frequently to scrape targets
+  evaluation_interval: 5s   # How frequently to evaluate rules
+  scrape_timeout:      5s
 
   # Default labels added to all time series scraped from this Prometheus
   external_labels:
@@ -41,7 +41,7 @@ scrape_configs:
   # ----------------------------------------------------------
   - job_name: 'service-registry'
     metrics_path: '/actuator/prometheus'
-    scrape_interval: 15s
+    scrape_interval: 5s
     static_configs:
       - targets:
           - 'service-registry:8761'
@@ -54,7 +54,7 @@ scrape_configs:
   # ----------------------------------------------------------
   - job_name: 'api-gateway'
     metrics_path: '/actuator/prometheus'
-    scrape_interval: 15s
+    scrape_interval: 5s
     static_configs:
       - targets:
           - 'api-gateway:8080'
@@ -67,7 +67,7 @@ scrape_configs:
   # ----------------------------------------------------------
   - job_name: 'account-service'
     metrics_path: '/actuator/prometheus'
-    scrape_interval: 15s
+    scrape_interval: 5s
     static_configs:
       - targets:
           - 'account-service:8081'
@@ -80,7 +80,7 @@ scrape_configs:
   # ----------------------------------------------------------
   - job_name: 'user-service'
     metrics_path: '/actuator/prometheus'
-    scrape_interval: 15s
+    scrape_interval: 5s
     static_configs:
       - targets:
           - 'user-service:8082'
@@ -93,7 +93,7 @@ scrape_configs:
   # ----------------------------------------------------------
   - job_name: 'sequence-generator'
     metrics_path: '/actuator/prometheus'
-    scrape_interval: 15s
+    scrape_interval: 5s
     static_configs:
       - targets:
           - 'sequence-generator:8083'
@@ -106,7 +106,7 @@ scrape_configs:
   # ----------------------------------------------------------
   - job_name: 'transaction-service'
     metrics_path: '/actuator/prometheus'
-    scrape_interval: 15s
+    scrape_interval: 5s
     static_configs:
       - targets:
           - 'transaction-service:8084'
@@ -119,7 +119,7 @@ scrape_configs:
   # ----------------------------------------------------------
   - job_name: 'fund-transfer'
     metrics_path: '/actuator/prometheus'
-    scrape_interval: 15s
+    scrape_interval: 5s
     static_configs:
       - targets:
           - 'fund-transfer:8085'
@@ -132,7 +132,7 @@ scrape_configs:
   # ----------------------------------------------------------
   - job_name: 'cadvisor'
     metrics_path: '/metrics'
-    scrape_interval: 15s
+    scrape_interval: 5s
     static_configs:
       - targets:
           - 'cadvisor:8080'

@@ -8,7 +8,7 @@ groups:
   # ==========================================================
 
   - name: banking.service.availability
-    interval: 30s
+    interval: 60s
     rules:
       # --------------------------------------------------------
       # ALERT: Service DOWN
@@ -24,7 +24,7 @@ groups:
           runbook: "Check docker logs {{ $labels.job }}"
 
   - name: banking.latency
-    interval: 30s
+    interval: 60s
     rules:
       # --------------------------------------------------------
       # ALERT: High p95 Latency
@@ -59,7 +59,7 @@ groups:
           description: "p99 response time for {{ $labels.application }} is {{ $value | humanizeDuration }}. Immediate investigation required."
 
   - name: banking.errors
-    interval: 30s
+    interval: 60s
     rules:
       # --------------------------------------------------------
       # ALERT: High 5xx Error Rate
@@ -96,7 +96,7 @@ groups:
           description: "{{ $labels.application }} error rate is {{ $value | humanizePercentage }}. Service degraded."
 
   - name: banking.cpu
-    interval: 30s
+    interval: 60s
     rules:
       # --------------------------------------------------------
       # ALERT: High Process CPU
@@ -125,7 +125,7 @@ groups:
           description: "{{ $labels.application }} process CPU is {{ $value | humanizePercentage }}. Service may become unresponsive."
 
   - name: banking.memory
-    interval: 30s
+    interval: 60s
     rules:
       # --------------------------------------------------------
       # ALERT: High JVM Heap Utilization
@@ -162,7 +162,7 @@ groups:
           description: "{{ $labels.application }} JVM heap is {{ $value | humanizePercentage }} full. OutOfMemoryError imminent. Restart may be required."
 
   - name: banking.gc
-    interval: 30s
+    interval: 60s
     rules:
       # --------------------------------------------------------
       # ALERT: High GC Pause Time
@@ -182,7 +182,7 @@ groups:
           description: "{{ $labels.application }} average GC pause is {{ $value | humanizeDuration }} (threshold: 200ms). This may cause latency spikes. Check heap sizing and GC policy."
 
   - name: banking.database
-    interval: 30s
+    interval: 60s
     rules:
       # --------------------------------------------------------
       # ALERT: High DB Connection Pool Utilization

@@ -11,7 +11,7 @@ providers:
     folder: 'Banking Application'
     type: file
     disableDeletion: false
-    updateIntervalSeconds: 30
+    updateIntervalSeconds: 5
     allowUiUpdates: true
     options:
       path: /etc/grafana/provisioning/dashboards
