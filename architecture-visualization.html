@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spring Boot Banking Architecture</title>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --bg-color: #F4F6FA;
+            --card-bg: #FFFFFF;
+            --text-main: #1E293B;
+            --text-muted: #64748B;
+            --accent-blue: #2E5AAC;
+            --accent-light: #E0E7FF;
+            --border-color: #E2E8F0;
+            
+            /* Badges */
+            --badge-ext: #FDE68A; /* yellow */
+            --badge-gw: #A7F3D0; /* green */
+            --badge-reg: #BFDBFE; /* blue */
+            --badge-biz: #DDD6FE; /* purple */
+            --badge-db: #FECACA; /* red */
+            --badge-mon: #FED7AA; /* orange */
+            
+            --node-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --node-shadow-active: 0 0 15px 5px rgba(46, 90, 172, 0.4);
+            
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            overflow-x: auto; /* Allow horizontal scroll for large diagrams */
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: var(--accent-blue);
+        }
+
+        /* Layout */
+        .diagram-container {
+            position: relative;
+            min-width: 1200px; /* Ensure layout doesn't break on small screens */
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: var(--node-shadow);
+        }
+
+        .layer {
+            position: relative;
+            margin-bottom: 40px;
+            padding: 20px;
+            border: 1px dashed var(--border-color);
+            border-radius: 8px;
+            background: #FAFAFC;
+        }
+
+        .layer-title {
+            position: absolute;
+            top: -12px;
+            left: 20px;
+            background: #FAFAFC;
+            padding: 0 10px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .nodes-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 40px;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Nodes */
+        .node {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 15px;
+            width: 180px;
+            text-align: center;
+            box-shadow: var(--node-shadow);
+            transition: all 0.3s ease;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            z-index: 2;
+        }
+
+        .node.active {
+            box-shadow: var(--node-shadow-active);
+            transform: scale(1.05);
+            border-color: var(--accent-blue);
+        }
+
+        .icon-wrapper {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 5px;
+        }
+
+        .node-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            line-height: 1.2;
+        }
+
+        .badge-port {
+            font-size: 0.7rem;
+            background: #F1F5F9;
+            color: var(--text-muted);
+            padding: 2px 6px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+        }
+
+        .node-desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            line-height: 1.3;
+        }
+
+        /* Specific node styles */
+        #node-client .icon-wrapper { background: var(--badge-ext); color: #B45309; }
+        #node-keycloak .icon-wrapper { background: var(--badge-ext); color: #B45309; }
+        
+        #node-gateway .icon-wrapper { background: var(--badge-gw); color: #047857; }
+        
+        #node-eureka .icon-wrapper { background: var(--badge-reg); color: #1D4ED8; }
+        
+        .biz-node .icon-wrapper { background: var(--badge-biz); color: #6D28D9; }
+        
+        .db-node .icon-wrapper { background: var(--badge-db); color: #B91C1C; }
+        
+        .mon-node .icon-wrapper { background: var(--badge-mon); color: #C2410C; }
+
+        /* Complex Layout Adjustments */
+        .monitoring-stack {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            bottom: 20px;
+            width: 220px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            border-left: 1px dashed var(--border-color);
+            padding-left: 20px;
+        }
+
+        /* SVG Overlay for Connections */
+        #svg-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .connection {
+            fill: none;
+            stroke: #CBD5E1;
+            stroke-width: 2;
+            transition: stroke 0.3s, stroke-width 0.3s;
+        }
+
+        .connection.active {
+            stroke: var(--accent-blue);
+            stroke-width: 3;
+        }
+
+        .connection.dashed { stroke-dasharray: 5, 5; }
+        .connection.dotted { stroke-dasharray: 2, 4; }
+        
+        /* Arrow heads */
+        marker path {
+            fill: #CBD5E1;
+            transition: fill 0.3s;
+        }
+        .connection.active + marker path, /* This doesn't work directly in CSS for markers used by url(), handled in JS */
+        .marker-active path {
+            fill: var(--accent-blue);
+        }
+
+        /* Animated Particle */
+        .particle {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #F59E0B; /* Amber for visibility */
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 10px #F59E0B, 0 0 5px #F59E0B;
+            z-index: 10;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Controls */
+        .controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: var(--node-shadow);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            border: 1px solid var(--accent-blue);
+        }
+
+        .controls h3 { margin: 0 0 10px 0; font-size: 1rem; color: var(--accent-blue); }
+
+        .btn {
+            background: #F1F5F9;
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .btn:hover { background: var(--accent-light); color: var(--accent-blue); }
+        .btn.primary { background: var(--accent-blue); color: white; border-color: var(--accent-blue); }
+        .btn.primary:hover { background: #1E3A8A; }
+
+        .control-group {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 10px;
+        }
+
+        /* Legend */
+        .legend {
+            position: absolute;
+            left: 40px;
+            bottom: 40px;
+            background: rgba(255,255,255,0.9);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: var(--node-shadow);
+            font-size: 0.8rem;
+            z-index: 10;
+            border: 1px solid var(--border-color);
+        }
+        .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+        .legend-line { width: 30px; height: 2px; background: #CBD5E1; }
+        .legend-line.dashed { background: transparent; border-bottom: 2px dashed #CBD5E1; }
+        .legend-line.dotted { background: transparent; border-bottom: 2px dotted #CBD5E1; }
+
+        /* Tooltip */
+        .flow-tooltip {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--text-main);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: 500;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1000;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            pointer-events: none;
+        }
+
+        .flow-tooltip.visible {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Spring Boot Banking Microservices Architecture</h1>
+
+    <!-- Controls -->
+    <div class="controls">
+        <h3>Animate Flows</h3>
+        <button class="btn" onclick="startFlow('login')">1. User Login <i data-lucide="play-circle" style="width:16px;height:16px;"></i></button>
+        <button class="btn" onclick="startFlow('createAccount')">2. New Account <i data-lucide="play-circle" style="width:16px;height:16px;"></i></button>
+        <button class="btn" onclick="startFlow('transfer')">3. Fund Transfer <i data-lucide="play-circle" style="width:16px;height:16px;"></i></button>
+        <button class="btn" onclick="startFlow('metrics')">4. Metrics Pipeline <i data-lucide="play-circle" style="width:16px;height:16px;"></i></button>
+        
+        <div class="control-group">
+            <button class="btn" style="flex:1" onclick="pausePlayFlow()" id="btn-pause"><i data-lucide="pause" style="width:16px;height:16px;"></i> Pause</button>
+            <button class="btn" style="flex:1" onclick="resetFlow()"><i data-lucide="rotate-ccw" style="width:16px;height:16px;"></i> Reset</button>
+            <button class="btn" style="flex:1" onclick="toggleSpeed()" id="btn-speed">1x Speed</button>
+        </div>
+    </div>
+
+    <div class="diagram-container" id="diagram-container">
+        
+        <svg id="svg-layer">
+            <defs>
+                <marker id="arrow-default" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#CBD5E1" />
+                </marker>
+                <marker id="arrow-active" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#2E5AAC" />
+                </marker>
+            </defs>
+            <!-- Paths will be injected here by JS -->
+        </svg>
+
+        <div id="particle" class="particle"></div>
+        <!-- For parallel animations -->
+        <div id="particles-container"></div>
+
+        <!-- 1. EXTERNAL / CLIENT -->
+        <div class="layer">
+            <div class="layer-title">1. External / Client</div>
+            <div class="nodes-container">
+                <div class="node" id="node-client">
+                    <div class="icon-wrapper"><i data-lucide="smartphone"></i></div>
+                    <div class="node-name">Client</div>
+                    <div class="node-desc">Postman / Mobile / Web</div>
+                </div>
+                <div class="node" id="node-keycloak">
+                    <div class="icon-wrapper"><i data-lucide="shield-check"></i></div>
+                    <div class="node-name">Keycloak</div>
+                    <div class="badge-port">Port 8571</div>
+                    <div class="node-desc">Issues JWT Tokens</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. GATEWAY LAYER -->
+        <div class="layer">
+            <div class="layer-title">2. Gateway Layer</div>
+            <div class="nodes-container">
+                <div class="node" id="node-gateway">
+                    <div class="icon-wrapper"><i data-lucide="cpu"></i></div>
+                    <div class="node-name">API Gateway</div>
+                    <div class="badge-port">Port 8080</div>
+                    <div class="node-desc">Routing + JWT Validation</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. REGISTRY LAYER -->
+        <div class="layer">
+            <div class="layer-title">3. Registry Layer</div>
+            <div class="nodes-container">
+                <div class="node" id="node-eureka">
+                    <div class="icon-wrapper"><i data-lucide="cloud"></i></div>
+                    <div class="node-name">Netflix Eureka</div>
+                    <div class="badge-port">Port 8761</div>
+                    <div class="node-desc">Service Directory</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. BUSINESS SERVICES LAYER -->
+        <div class="layer">
+            <div class="layer-title">4. Business Services Layer</div>
+            <div class="nodes-container">
+                <div class="node biz-node" id="node-user">
+                    <div class="icon-wrapper"><i data-lucide="server"></i></div>
+                    <div class="node-name">User Service</div>
+                    <div class="badge-port">Port 8082</div>
+                    <div class="node-desc">Registration / Admin</div>
+                </div>
+                <div class="node biz-node" id="node-account">
+                    <div class="icon-wrapper"><i data-lucide="server"></i></div>
+                    <div class="node-name">Account Service</div>
+                    <div class="badge-port">Port 8081</div>
+                    <div class="node-desc">Lifecycle + Balance</div>
+                </div>
+                <div class="node biz-node" id="node-sequence">
+                    <div class="icon-wrapper"><i data-lucide="server"></i></div>
+                    <div class="node-name">Sequence Gen</div>
+                    <div class="badge-port">Port 8083</div>
+                    <div class="node-desc">Unique Acct #s</div>
+                </div>
+                <div class="node biz-node" id="node-transaction">
+                    <div class="icon-wrapper"><i data-lucide="server"></i></div>
+                    <div class="node-name">Transaction Svc</div>
+                    <div class="badge-port">Port 8084</div>
+                    <div class="node-desc">Deposit/Withdraw</div>
+                </div>
+                <div class="node biz-node" id="node-transfer">
+                    <div class="icon-wrapper"><i data-lucide="server"></i></div>
+                    <div class="node-name">Fund Transfer</div>
+                    <div class="badge-port">Port 8085</div>
+                    <div class="node-desc">Money Movement</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. DATA LAYER -->
+        <div class="layer">
+            <div class="layer-title">5. Data Layer</div>
+            <div class="nodes-container">
+                <div class="node db-node" id="node-db-user">
+                    <div class="icon-wrapper"><i data-lucide="database"></i></div>
+                    <div class="node-name">User DB</div>
+                    <div class="badge-port">MySQL</div>
+                </div>
+                <div class="node db-node" id="node-db-account">
+                    <div class="icon-wrapper"><i data-lucide="database"></i></div>
+                    <div class="node-name">Account DB</div>
+                    <div class="badge-port">MySQL</div>
+                </div>
+                <div class="node db-node" id="node-db-sequence">
+                    <div class="icon-wrapper"><i data-lucide="database"></i></div>
+                    <div class="node-name">Sequence DB</div>
+                    <div class="badge-port">MySQL</div>
+                </div>
+                <div class="node db-node" id="node-db-transaction">
+                    <div class="icon-wrapper"><i data-lucide="database"></i></div>
+                    <div class="node-name">Tx DB</div>
+                    <div class="badge-port">MySQL</div>
+                </div>
+                <div class="node db-node" style="opacity: 0; pointer-events: none;">
+                    <!-- Placeholder to align with transfer service which usually doesn't have its own DB in these patterns, 
+                         or if it does, it's just a proxy. Let's add it if needed, but the prompt says 5 DBs, 
+                         one under each. Let's make it visible just in case. -->
+                </div>
+            </div>
+        </div>
+
+        <!-- MONITORING STACK (Positioned absolutely on the right) -->
+        <div class="monitoring-stack">
+            <div class="layer-title" style="top: -10px; left: 0;">6. Monitoring</div>
+            
+            <div class="node mon-node" id="node-grafana" style="width: 140px; margin: 0 auto;">
+                <div class="icon-wrapper"><i data-lucide="pie-chart"></i></div>
+                <div class="node-name">Grafana</div>
+                <div class="badge-port">Port 3000</div>
+                <div class="node-desc">Dashboards</div>
+            </div>
+
+            <div class="node mon-node" id="node-prometheus" style="width: 140px; margin: 0 auto;">
+                <div class="icon-wrapper"><i data-lucide="activity"></i></div>
+                <div class="node-name">Prometheus</div>
+                <div class="badge-port">Port 9090</div>
+                <div class="node-desc">Metrics Storage</div>
+            </div>
+
+            <div class="node mon-node" id="node-cadvisor" style="width: 140px; margin: 0 auto;">
+                <div class="icon-wrapper"><i data-lucide="box"></i></div>
+                <div class="node-name">cAdvisor</div>
+                <div class="badge-port">Port 8089</div>
+                <div class="node-desc">Container Metrics</div>
+            </div>
+        </div>
+
+        <!-- DB for transfer service - replacing the hidden one to keep layout clean -->
+        <script>
+            // Hack to quickly fix the 5th DB
+            const dbLayer = document.querySelectorAll('.nodes-container')[4];
+            dbLayer.lastElementChild.style.opacity = '1';
+            dbLayer.lastElementChild.innerHTML = `
+                <div class="icon-wrapper"><i data-lucide="database"></i></div>
+                <div class="node-name">Transfer DB</div>
+                <div class="badge-port">MySQL</div>
+            `;
+            dbLayer.lastElementChild.id = 'node-db-transfer';
+        </script>
+
+        <div class="legend">
+            <div style="font-weight: bold; margin-bottom: 5px;">Legend</div>
+            <div class="legend-item"><div class="legend-line"></div> HTTP Sync Call</div>
+            <div class="legend-item"><div class="legend-line dashed"></div> Feign Client</div>
+            <div class="legend-item"><div class="legend-line dotted"></div> Async / Registration</div>
+        </div>
+    </div>
+
+    <div class="flow-tooltip" id="flow-tooltip">Flow description...</div>
+
+    <script>
+        // Initialize Icons
+        lucide.createIcons();
+
+        // Diagram Engine
+        const svg = document.getElementById('svg-layer');
+        const diagramContainer = document.getElementById('diagram-container');
+        
+        let connections = []; // Store connection data
+
+        // Helper to get element center relative to the SVG container
+        function getCenter(elementId) {
+            const el = document.getElementById(elementId);
+            if (!el) return { x: 0, y: 0 };
+            const containerRect = diagramContainer.getBoundingClientRect();
+            const rect = el.getBoundingClientRect();
+            return {
+                x: rect.left - containerRect.left + rect.width / 2,
+                y: rect.top - containerRect.top + rect.height / 2,
+                rect: rect
+            };
+        }
+
+        // Generate SVG Path
+        function createConnection(id, fromId, toId, type = 'solid', reverseMarker = false, bidir = false) {
+            const from = getCenter(fromId);
+            const to = getCenter(toId);
+            
+            // Simple path logic: if vertical, straight line. If horizontal, straight.
+            // If diagonal, maybe use a bezier curve
+            
+            let pathD = `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
+            
+            // For nicer routing (orthogonal)
+            if (Math.abs(from.y - to.y) > 20 && Math.abs(from.x - to.x) > 20) {
+                // Diagonal, let's use a curve
+                const ctrlY1 = from.y + (to.y - from.y) / 2;
+                pathD = `M ${from.x} ${from.y} C ${from.x} ${ctrlY1}, ${to.x} ${ctrlY1}, ${to.x} ${to.y}`;
+            }
+
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', pathD);
+            path.setAttribute('id', `path-${id}`);
+            path.setAttribute('class', `connection ${type}`);
+            
+            // Markers
+            if (bidir) {
+                path.setAttribute('marker-start', 'url(#arrow-default)');
+                path.setAttribute('marker-end', 'url(#arrow-default)');
+            } else if (reverseMarker) {
+                path.setAttribute('marker-start', 'url(#arrow-default)');
+            } else {
+                path.setAttribute('marker-end', 'url(#arrow-default)');
+            }
+
+            svg.appendChild(path);
+
+            connections.push({ id, fromId, toId, path, pathD });
+            return `path-${id}`;
+        }
+
+        // Draw static topology
+        function drawTopology() {
+            svg.innerHTML = svg.querySelector('defs').outerHTML; // clear existing paths
+            connections = [];
+
+            // External
+            createConnection('client-keycloak', 'node-client', 'node-keycloak', 'solid', false, true);
+            createConnection('client-gw', 'node-client', 'node-gateway');
+            
+            // Gateway
+            createConnection('gw-keycloak', 'node-gateway', 'node-keycloak');
+            createConnection('gw-eureka', 'node-gateway', 'node-eureka', 'dotted', false, true);
+            
+            // Gateway to Biz (draw one central one, or one to each. Let's do one to User and Transfer as examples to avoid spaghetti)
+            createConnection('gw-user', 'node-gateway', 'node-user');
+            createConnection('gw-account', 'node-gateway', 'node-account');
+            createConnection('gw-transfer', 'node-gateway', 'node-transfer');
+
+            // Biz to Eureka (dotted)
+            document.querySelectorAll('.biz-node').forEach(el => {
+                createConnection(`eureka-${el.id}`, 'node-eureka', el.id, 'dotted', false, true);
+            });
+
+            // Biz internal (Feign - dashed)
+            createConnection('user-account', 'node-user', 'node-account', 'dashed');
+            createConnection('account-seq', 'node-account', 'node-sequence', 'dashed');
+            createConnection('transfer-tx', 'node-transfer', 'node-transaction', 'dashed');
+            
+            // Biz to DB
+            createConnection('user-db', 'node-user', 'node-db-user');
+            createConnection('account-db', 'node-account', 'node-db-account');
+            createConnection('seq-db', 'node-sequence', 'node-db-sequence');
+            createConnection('tx-db', 'node-transaction', 'node-db-transaction');
+            createConnection('transfer-db', 'node-transfer', 'node-db-transfer');
+
+            // Monitoring
+            document.querySelectorAll('.biz-node').forEach(el => {
+                createConnection(`biz-prom-${el.id}`, el.id, 'node-prometheus', 'dotted');
+            });
+            createConnection('prom-grafana', 'node-prometheus', 'node-grafana');
+            createConnection('cad-grafana', 'node-cadvisor', 'node-grafana');
+            
+            // Keycloak to Prom (Admin API)
+            createConnection('keycloak-prom', 'node-keycloak', 'node-prometheus', 'dotted');
+        }
+
+        // Initialize topology
+        window.addEventListener('load', drawTopology);
+        window.addEventListener('resize', drawTopology);
+
+        // --- Animation Engine ---
+        const flows = {
+            login: [
+                { from: 'node-client', to: 'node-keycloak', msg: '1. Client requests login' },
+                { from: 'node-keycloak', to: 'node-client', msg: '2. Keycloak issues JWT Token' }
+            ],
+            createAccount: [
+                { from: 'node-client', to: 'node-gateway', msg: '1. POST /api/v1/accounts (with JWT)' },
+                { from: 'node-gateway', to: 'node-keycloak', msg: '2. Validate JWT Signature' },
+                { from: 'node-gateway', to: 'node-eureka', msg: '3. Lookup User Service Route' },
+                { from: 'node-gateway', to: 'node-user', msg: '4. Forward to User Service' },
+                { from: 'node-user', to: 'node-account', msg: '5. Create Account Request (Feign)' },
+                { from: 'node-account', to: 'node-sequence', msg: '6. Get Next Account Number (Feign)' },
+                { from: 'node-account', to: 'node-db-account', msg: '7. Save Account Details' },
+                { from: 'node-db-account', to: 'node-client', msg: '8. 201 Created', virtualPath: true } // Virtual path bubbling up
+            ],
+            transfer: [
+                { from: 'node-client', to: 'node-gateway', msg: '1. POST /transfer (with JWT)' },
+                { from: 'node-gateway', to: 'node-eureka', msg: '2. Discover Fund Transfer Service' },
+                { from: 'node-gateway', to: 'node-transfer', msg: '3. Route to Fund Transfer' },
+                { from: 'node-transfer', to: 'node-transaction', msg: '4. Debit Source Account (Feign)' },
+                { from: 'node-transaction', to: 'node-db-transaction', msg: '5. Write Tx Record' },
+                { from: 'node-transfer', to: 'node-transaction', msg: '6. Credit Target Account (Feign)' },
+                { from: 'node-transaction', to: 'node-db-transaction', msg: '7. Write Tx Record' },
+                { from: 'node-transfer', to: 'node-account', msg: '8. Update Balances (Feign)' },
+                { from: 'node-account', to: 'node-db-account', msg: '9. Save New Balances' },
+                { from: 'node-db-account', to: 'node-client', msg: '10. Success Response', virtualPath: true }
+            ],
+            metrics: [
+                // Special case: parallel animation
+                { parallel: true, msg: '1. Services pushing metrics to Prometheus (/actuator/prometheus)' },
+                { from: 'node-prometheus', to: 'node-grafana', msg: '2. Grafana querying PromQL' },
+                { from: 'node-cadvisor', to: 'node-grafana', msg: '3. Grafana showing Container stats' }
+            ]
+        };
+
+        let currentAnimation = null;
+        let isPaused = false;
+        let animationSpeed = 1000; // base duration ms per step
+
+        function findPathId(fromId, toId) {
+            const conn = connections.find(c => 
+                (c.fromId === fromId && c.toId === toId) || 
+                (c.fromId === toId && c.toId === fromId)
+            );
+            return conn ? `path-${conn.id}` : null;
+        }
+
+        async function animateStep(step, duration) {
+            if(isPaused) {
+                await new Promise(resolve => {
+                    const checkPause = setInterval(() => {
+                        if(!isPaused) {
+                            clearInterval(checkPause);
+                            resolve();
+                        }
+                    }, 100);
+                });
+            }
+
+            // Update tooltip
+            const tooltip = document.getElementById('flow-tooltip');
+            tooltip.innerText = step.msg;
+            tooltip.classList.add('visible');
+
+            if (step.parallel) {
+                // Special case for metrics
+                const bizNodes = document.querySelectorAll('.biz-node');
+                const anims = Array.from(bizNodes).map(node => {
+                    return animateParticleAlong(node.id, 'node-prometheus', duration);
+                });
+                await Promise.all(anims);
+                return;
+            }
+
+            // Highlight nodes
+            const fromNode = document.getElementById(step.from);
+            const toNode = document.getElementById(step.to);
+            if(fromNode) fromNode.classList.add('active');
+            if(toNode) toNode.classList.add('active');
+
+            await animateParticleAlong(step.from, step.to, duration, step.virtualPath);
+
+            // Cleanup highlight
+            if(fromNode) fromNode.classList.remove('active');
+            if(toNode) toNode.classList.remove('active');
+        }
+
+        function animateParticleAlong(fromId, toId, duration, virtual = false) {
+            return new Promise(resolve => {
+                const pathId = findPathId(fromId, toId);
+                let pathEl = document.getElementById(pathId);
+                let isReverse = false;
+
+                // Handle virtual paths (not drawn, just fly over)
+                if (!pathEl || virtual) {
+                    const from = getCenter(fromId);
+                    const to = getCenter(toId);
+                    pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    pathEl.setAttribute('d', `M ${from.x} ${from.y} L ${to.x} ${to.y}`);
+                    // not appending to DOM
+                } else {
+                    // Check if path direction matches
+                    const conn = connections.find(c => `path-${c.id}` === pathId);
+                    if (conn && conn.fromId === toId) {
+                        isReverse = true;
+                    }
+                    pathEl.classList.add('active');
+                    pathEl.setAttribute('marker-end', 'url(#arrow-active)');
+                }
+
+                const length = pathEl.getTotalLength();
+                
+                // Create a particle specifically for this animation (allows parallel)
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                document.getElementById('particles-container').appendChild(particle);
+                particle.style.opacity = '1';
+
+                let start = null;
+                function step(timestamp) {
+                    if(isPaused) {
+                        // Adjust start time to account for pause
+                        start += (timestamp - lastTimestamp);
+                    }
+                    lastTimestamp = timestamp;
+
+                    if (!start) start = timestamp;
+                    const progress = timestamp - start;
+                    let percent = Math.min(progress / duration, 1);
+                    
+                    // Easing (ease-in-out)
+                    const easePercent = percent < 0.5 ? 2 * percent * percent : 1 - Math.pow(-2 * percent + 2, 2) / 2;
+                    
+                    let drawPercent = isReverse ? (1 - easePercent) : easePercent;
+                    
+                    const point = pathEl.getPointAtLength(length * drawPercent);
+                    particle.style.left = `${point.x}px`;
+                    particle.style.top = `${point.y}px`;
+
+                    if (percent < 1) {
+                        currentAnimationReq = window.requestAnimationFrame(step);
+                    } else {
+                        // Cleanup
+                        particle.remove();
+                        if(!virtual && pathEl.parentNode) {
+                            pathEl.classList.remove('active');
+                            pathEl.setAttribute('marker-end', 'url(#arrow-default)');
+                        }
+                        resolve();
+                    }
+                }
+                let lastTimestamp = performance.now();
+                let currentAnimationReq = window.requestAnimationFrame(step);
+
+                // Store request ID for hard reset
+                particle.dataset.reqId = currentAnimationReq;
+            });
+        }
+
+        async function startFlow(flowName) {
+            resetFlow();
+            const flow = flows[flowName];
+            if (!flow) return;
+
+            for (const step of flow) {
+                if(!isPaused) { // Wait a tiny bit between steps
+                    await new Promise(r => setTimeout(r, 200)); 
+                }
+                await animateStep(step, animationSpeed);
+            }
+            
+            setTimeout(() => {
+                document.getElementById('flow-tooltip').classList.remove('visible');
+            }, 2000);
+        }
+
+        function pausePlayFlow() {
+            isPaused = !isPaused;
+            const btn = document.getElementById('btn-pause');
+            if(isPaused) {
+                btn.innerHTML = '<i data-lucide="play" style="width:16px;height:16px;"></i> Resume';
+                btn.classList.add('primary');
+            } else {
+                btn.innerHTML = '<i data-lucide="pause" style="width:16px;height:16px;"></i> Pause';
+                btn.classList.remove('primary');
+            }
+            lucide.createIcons();
+        }
+
+        function resetFlow() {
+            isPaused = false;
+            const btnPause = document.getElementById('btn-pause');
+            btnPause.innerHTML = '<i data-lucide="pause" style="width:16px;height:16px;"></i> Pause';
+            btnPause.classList.remove('primary');
+            
+            // Clear all active classes
+            document.querySelectorAll('.active').forEach(el => {
+                el.classList.remove('active');
+                if(el.tagName === 'path') {
+                    el.setAttribute('marker-end', 'url(#arrow-default)');
+                }
+            });
+            
+            // Clear tooltip
+            document.getElementById('flow-tooltip').classList.remove('visible');
+
+            // Nuke all particles and animation frames
+            document.getElementById('particles-container').innerHTML = '';
+            
+            // Brute force stop all requestAnimationFrames
+            let id = window.requestAnimationFrame(function(){});
+            while(id--){
+              window.cancelAnimationFrame(id);
+            }
+            
+            lucide.createIcons();
+        }
+
+        function toggleSpeed() {
+            const btn = document.getElementById('btn-speed');
+            if (animationSpeed === 1000) {
+                animationSpeed = 500;
+                btn.innerText = '2x Speed';
+                btn.classList.add('primary');
+            } else {
+                animationSpeed = 1000;
+                btn.innerText = '1x Speed';
+                btn.classList.remove('primary');
+            }
+        }
+
+    </script>
+</body>
+</html>

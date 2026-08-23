@@ -1,0 +1,4079 @@
+--- FILE: docker-compose.yml ---
+version: '3.8'
+
+services:
+  service-registry:
+    build:
+      context: ./Service-Registry
+    container_name: service-registry
+    ports:
+      - "8761:8761"
+    networks:
+      - banking-network
+
+  api-gateway:
+    build:
+      context: ./API-Gateway
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
+      - APP_CONFIG_KEYCLOAK_URL=http://host.docker.internal:8571/
+    networks:
+      - banking-network
+    depends_on:
+      - service-registry
+
+  user-service:
+    build:
+      context: ./User-Service
+    container_name: user-service
+    ports:
+      - "8082:8082"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
+      - MYSQL_HOST=host.docker.internal
+      - APP_CONFIG_KEYCLOAK_SERVER_URL=http://host.docker.internal:8571
+    networks:
+      - banking-network
+    depends_on:
+      - service-registry
+
+  account-service:
+    build:
+      context: ./Account-Service
+    container_name: account-service
+    ports:
+      - "8081:8081"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
+      - SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/account_service
+    networks:
+      - banking-network
+    depends_on:
+      - service-registry
+
+  transaction-service:
+    build:
+      context: ./Transaction-Service
+    container_name: transaction-service
+    ports:
+      - "8084:8084"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
+      - SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/transaction_service
+    networks:
+      - banking-network
+    depends_on:
+      - service-registry
+
+  fund-transfer:
+    build:
+      context: ./Fund-Transfer
+    container_name: fund-transfer
+    ports:
+      - "8085:8085"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
+      - SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/fund_transfer_service
+    networks:
+      - banking-network
+    depends_on:
+      - service-registry
+
+  sequence-generator:
+    build:
+      context: ./Sequence-Generator
+    container_name: sequence-generator
+    ports:
+      - "8083:8083"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
+      - SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/sequence_generator
+    networks:
+      - banking-network
+    depends_on:
+      - service-registry
+
+  # ==========================================================
+  # Performance Engineering Monitoring Stack
+  # Added as an additional layer — no existing services changed
+  # ==========================================================
+
+  # ----------------------------------------------------------
+  # Prometheus — Metrics collection and storage
+  # UI:  http://localhost:9090
+  # ----------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - banking-network
+    depends_on:
+      - service-registry
+      - api-gateway
+      - user-service
+      - account-service
+      - transaction-service
+      - fund-transfer
+      - sequence-generator
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # Grafana — Metrics visualization and dashboards
+  # UI:       http://localhost:3000  (admin / admin)
+  # ----------------------------------------------------------
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/provisioning/dashboards/banking-performance.json
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+    networks:
+      - banking-network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # cAdvisor — Docker container resource metrics
+  # UI:      http://localhost:8089
+  # Metrics: http://localhost:8089/metrics  (scraped by Prometheus)
+  # NOTE: Host port 8089 used — 8080 is already taken by api-gateway
+  # ----------------------------------------------------------
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.2
+    container_name: cadvisor
+    ports:
+      - "8089:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg
+    networks:
+      - banking-network
+    restart: unless-stopped
+
+networks:
+  banking-network:
+    driver: bridge
+
+volumes:
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+
+--- FILE: Account-Service\pom.xml ---
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.7.15</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>org.training</groupId>
+    <artifactId>accountService</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>Account Service</name>
+    <description>Account Service</description>
+    <properties>
+        <java.version>17</java.version>
+        <spring-cloud.version>2021.0.8</spring-cloud.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <!-- Micrometer Prometheus Registry — for /actuator/prometheus endpoint -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <scope>runtime</scope>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
+
+
+--- FILE: Account-Service\src\main\java\org\training\account\service\configuration\FeignConfiguration.java ---
+package org.training.account.service.configuration;
+
+import feign.codec.ErrorDecoder;
+import org.springframework.cloud.openfeign.FeignClientProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class FeignConfiguration extends FeignClientProperties.FeignClientConfiguration {
+
+    /**
+     * Returns a new instance of ErrorDecoder that is used to decode errors from a Feign client.
+     *
+     * @return a new instance of ErrorDecoder
+     */
+    @Bean
+    public ErrorDecoder errorDecoder() {
+        return new FeignClientErrorDecoder();
+    }
+}
+
+
+--- FILE: Account-Service\src\main\java\org\training\account\service\controller\AccountController.java ---
+package org.training.account.service.controller;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.training.account.service.model.dto.AccountDto;
+import org.training.account.service.model.dto.AccountStatusUpdate;
+import org.training.account.service.model.dto.response.Response;
+import org.training.account.service.model.dto.external.TransactionResponse;
+import org.training.account.service.service.AccountService;
+
+import java.util.List;
+
+@Slf4j
+@RequiredArgsConstructor
+@RestController
+@RequestMapping("/accounts")
+public class AccountController {
+
+    private final AccountService accountService;
+
+    /**
+     * Create an account using the provided accountDto
+     *
+     * @param accountDto The account details
+     * @return The response entity with the created account and HTTP status code
+     */
+    @PostMapping
+    public ResponseEntity<Response> createAccount(@RequestBody AccountDto accountDto) {
+        return new ResponseEntity<>(accountService.createAccount(accountDto), HttpStatus.CREATED);
+    }
+
+    /**
+     * Update the status of an account.
+     *
+     * @param accountNumber       The account number of the account to update.
+     * @param accountStatusUpdate The account status update containing the new status.
+     * @return The response entity with the updated account status.
+     */
+    @PatchMapping
+    public ResponseEntity<Response> updateAccountStatus(@RequestParam String accountNumber,@RequestBody AccountStatusUpdate accountStatusUpdate) {
+        return ResponseEntity.ok(accountService.updateStatus(accountNumber, accountStatusUpdate));
+    }
+
+    /**
+     * Retrieves an account by its account number.
+     *
+     * @param accountNumber The account number to search for.
+     * @return The account DTO if found, or a 404 response if not found.
+     */
+    @GetMapping
+    public ResponseEntity<AccountDto> readByAccountNumber(@RequestParam String accountNumber) {
+        return ResponseEntity.ok(accountService.readAccountByAccountNumber(accountNumber));
+    }
+
+    /**
+     * Updates an account with the given account number.
+     *
+     * @param accountNumber The account number of the account to be updated.
+     * @param accountDto The updated account information.
+     * @return The response entity with the updated account information.
+     */
+    @PutMapping
+    public ResponseEntity<Response> updateAccount(@RequestParam String accountNumber, @RequestBody AccountDto accountDto) {
+        return ResponseEntity.ok(accountService.updateAccount(accountNumber, accountDto));
+    }
+
+    /**
+     * Retrieves the balance of the specified account.
+     *
+     * @param accountNumber The account number
+     * @return The account balance
+     */
+    @GetMapping("/balance")
+    public ResponseEntity<String> accountBalance(@RequestParam String accountNumber) {
+        return ResponseEntity.ok(accountService.getBalance(accountNumber));
+    }
+
+    /**
+     * Retrieve the list of transactions for a given account ID.
+     *
+     * @param accountId The ID of the account.
+     * @return A ResponseEntity object containing a list of TransactionResponse objects.
+     */
+    @GetMapping("/{accountId}/transactions")
+    public ResponseEntity<List<TransactionResponse>> getTransactionsFromAccountId(@PathVariable String accountId) {
+        return ResponseEntity.ok(accountService.getTransactionsFromAccountId(accountId));
+    }
+
+    /**
+     * Closes an account.
+     *
+     * @param accountNumber The account number of the account to be closed.
+     * @return The response entity with the result of closing the account.
+     */
+    @PutMapping("/closure")
+    public ResponseEntity<Response> closeAccount(@RequestParam String accountNumber) {
+        return ResponseEntity.ok(accountService.closeAccount(accountNumber));
+    }
+
+    /**
+     * Retrieves the account for a given user ID.
+     *
+     * @param userId the ID of the user
+     * @return the account of the user
+     */
+    @GetMapping("/{userId}")
+    public ResponseEntity<AccountDto> readAccountByUserId(@PathVariable Long userId){
+        return ResponseEntity.ok(accountService.readAccountByUserId(userId));
+
+
+
+
+
+
+
+
+
+
+
+    }
+}
+
+
+--- FILE: Account-Service\src\main\java\org\training\account\service\exception\GlobalExceptionHandler.java ---
+package org.training.account.service.exception;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+
+    @Value("${spring.application.bad_request}")
+    private String badRequest;
+
+    @Value("${spring.application.conflict}")
+    private String conflict;
+
+    @Value("${spring.application.not_found}")
+    private String notFound;
+
+    /**
+     * Handles the case when a method argument is not valid.
+     *
+     * @param ex      The MethodArgumentNotValidException that occurred.
+     * @param headers The HttpHeaders of the response.
+     * @param status  The HttpStatus of the response.
+     * @param request The WebRequest of the response.
+     * @return A ResponseEntity with an ErrorResponse and HttpStatus.BAD_REQUEST.
+     */
+    @Override
+    public ResponseEntity<Object> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatus status, WebRequest request) {
+
+        return new ResponseEntity<>(new ErrorResponse(badRequest, ex.getLocalizedMessage()), HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Exception handler for GlobalException.
+     *
+     * @param globalException The GlobalException to handle.
+     * @return The ResponseEntity with the error response.
+     */
+    @ExceptionHandler(GlobalException.class)
+    public ResponseEntity<Object> handleGlobalException(GlobalException globalException) {
+        return ResponseEntity
+                .badRequest()
+                .body(ErrorResponse.builder()
+                        .errorCode(globalException.getErrorCode())
+                        .message(globalException.getErrorMessage())
+                        .build());
+    }
+}
+
+--- FILE: Account-Service\src\main\java\org\training\account\service\external\SequenceService.java ---
+package org.training.account.service.external;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.training.account.service.model.dto.external.SequenceDto;
+
+@FeignClient(name = "sequence-generator")
+public interface SequenceService {
+
+    /**
+     * Generates a new account number.
+     *
+     * @return the generated account number as a SequenceDto object.
+     */
+    @PostMapping("/sequence")
+    SequenceDto generateAccountNumber();
+}
+
+
+--- FILE: Account-Service\src\main\java\org\training\account\service\external\TransactionService.java ---
+package org.training.account.service.external;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.training.account.service.configuration.FeignConfiguration;
+import org.training.account.service.model.dto.external.TransactionResponse;
+
+import java.util.List;
+
+@FeignClient(name = "transaction-service", configuration = FeignConfiguration.class)
+public interface TransactionService {
+
+    /**
+     * Retrieves a list of transactions from the specified account ID.
+     *
+     * @param accountId the ID of the account
+     * @return a list of transaction responses
+     */
+    @GetMapping("/transactions")
+    List<TransactionResponse> getTransactionsFromAccountId(@RequestParam String accountId);
+}
+
+
+--- FILE: Account-Service\src\main\java\org\training\account\service\external\UserService.java ---
+package org.training.account.service.external;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.training.account.service.configuration.FeignConfiguration;
+import org.training.account.service.model.dto.external.UserDto;
+
+@FeignClient(name = "user-service", configuration = FeignConfiguration.class)
+public interface UserService {
+
+    /**
+     * Retrieves a user by their ID.
+     *
+     * @param userId the ID of the user to retrieve
+     * @return a ResponseEntity containing the user DTO if found, or an empty body with a not found status code
+     */
+    @GetMapping("/api/users/{userId}")
+    ResponseEntity<UserDto> readUserById(@PathVariable Long userId);
+}
+
+--- FILE: Account-Service\src\main\java\org\training\account\service\model\entity\Account.java ---
+package org.training.account.service.model.entity;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+import org.training.account.service.model.AccountStatus;
+import org.training.account.service.model.AccountType;
+
+import javax.persistence.*;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
+@Entity
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class Account {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long accountId;
+
+    private String accountNumber;
+
+    @Enumerated(EnumType.STRING)
+    private AccountType accountType;
+
+    @Enumerated(EnumType.STRING)
+    private AccountStatus accountStatus;
+
+    @CreationTimestamp
+    private LocalDate openingDate;
+
+    private BigDecimal availableBalance;
+
+    private Long userId;
+}
+
+
+--- FILE: Account-Service\src\main\java\org\training\account\service\service\implementation\AccountServiceImpl.java ---
+package org.training.account.service.service.implementation;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.training.account.service.exception.*;
+import org.training.account.service.external.SequenceService;
+import org.training.account.service.external.TransactionService;
+import org.training.account.service.external.UserService;
+import org.training.account.service.model.AccountStatus;
+import org.training.account.service.model.AccountType;
+import org.training.account.service.model.dto.AccountDto;
+import org.training.account.service.model.dto.AccountStatusUpdate;
+import org.training.account.service.model.dto.external.UserDto;
+import org.training.account.service.model.dto.response.Response;
+import org.training.account.service.model.entity.Account;
+import org.training.account.service.model.mapper.AccountMapper;
+import org.training.account.service.model.dto.external.TransactionResponse;
+import org.training.account.service.repository.AccountRepository;
+import org.training.account.service.service.AccountService;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Objects;
+
+import static org.training.account.service.model.Constants.ACC_PREFIX;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class AccountServiceImpl implements AccountService {
+
+    private final UserService userService;
+    private final AccountRepository accountRepository;
+    private final SequenceService sequenceService;
+    private final TransactionService transactionService;
+
+    private final AccountMapper accountMapper = new AccountMapper();
+
+
+    @Value("${spring.application.ok}")
+    private String success;
+
+    /**
+     * Creates an account based on the provided accountDto.
+     *
+     * @param accountDto The accountDto containing the necessary information to create an account.
+     * @return The response indicating the result of the account creation.
+     * @throws ResourceNotFound   If the user associated with the accountDto does not exist.
+     * @throws ResourceConflict   If an account with the same userId and accountType already exists.
+     */
+    @Override
+    public Response createAccount(AccountDto accountDto) {
+
+        ResponseEntity<UserDto> user = userService.readUserById(accountDto.getUserId());
+        if (Objects.isNull(user.getBody())) {
+            throw new ResourceNotFound("user not found on the server");
+        }
+
+        accountRepository.findAccountByUserIdAndAccountType(accountDto.getUserId(), AccountType.valueOf(accountDto.getAccountType()))
+                .ifPresent(account -> {
+                    log.error("Account already exists on the server");
+                    throw new ResourceConflict("Account already exists on the server");
+                });
+
+        Account account = accountMapper.convertToEntity(accountDto);
+        account.setAccountNumber(ACC_PREFIX + String.format("%07d",sequenceService.generateAccountNumber().getAccountNumber()));
+        account.setAccountStatus(AccountStatus.PENDING);
+        account.setAvailableBalance(BigDecimal.valueOf(0));
+        account.setAccountType(AccountType.valueOf(accountDto.getAccountType()));
+        accountRepository.save(account);
+        return Response.builder()
+                .responseCode(success)
+                .message(" Account created successfully").build();
+    }
+
+    /**
+     * Updates the status of an account.
+     *
+     * @param accountNumber The account number of the account to update.
+     * @param accountUpdate The account status update object.
+     * @return The response indicating the result of the update.
+     * @throws AccountStatusException   If the account is inactive or closed.
+     * @throws InSufficientFunds       If the account balance is below the minimum required balance.
+     * @throws ResourceNotFound        If the account could not be found.
+     */
+    @Override
+    public Response updateStatus(String accountNumber, AccountStatusUpdate accountUpdate) {
+
+        return accountRepository.findAccountByAccountNumber(accountNumber)
+                .map(account -> {
+                    if(account.getAccountStatus().equals(AccountStatus.ACTIVE)){
+                        throw new AccountStatusException("Account is inactive/closed");
+                    }
+                    if(account.getAvailableBalance().compareTo(BigDecimal.ZERO) < 0 || account.getAvailableBalance().compareTo(BigDecimal.valueOf(1000)) < 0){
+                        throw new InSufficientFunds("Minimum balance of Rs.1000 is required");
+                    }
+                    account.setAccountStatus(accountUpdate.getAccountStatus());
+                    accountRepository.save(account);
+                    return Response.builder().message("Account updated successfully").responseCode(success).build();
+                }).orElseThrow(() -> new ResourceNotFound("Account not on the server"));
+
+    }
+
+    @Override
+    public AccountDto readAccountByAccountNumber(String accountNumber) {
+
+        return accountRepository.findAccountByAccountNumber(accountNumber)
+                .map(account -> {
+                    AccountDto accountDto = accountMapper.convertToDto(account);
+                    accountDto.setAccountType(account.getAccountType().toString());
+                    accountDto.setAccountStatus(account.getAccountStatus().toString());
+                    return accountDto;
+                })
+                .orElseThrow(ResourceNotFound::new);
+    }
+
+    /**
+     * Updates an account with the provided account number and account DTO.
+     *
+     * @param accountNumber The account number of the account to be updated.
+     * @param accountDto    The account DTO containing the updated account information.
+     * @return A response indicating the success or failure of the account update.
+     * @throws AccountStatusException If the account is inactive or closed.
+     * @throws ResourceNotFound      If the account is not found on the server.
+     */
+    @Override
+    public Response updateAccount(String accountNumber, AccountDto accountDto) {
+
+        return accountRepository.findAccountByAccountNumber(accountDto.getAccountNumber())
+                .map(account -> {
+                    BeanUtils.copyProperties(accountDto, account);
+                    accountRepository.save(account);
+                    return Response.builder()
+                            .responseCode(success)
+                            .message("Account updated successfully").build();
+                }).orElseThrow(() -> new ResourceNotFound("Account not found on the server"));
+    }
+
+    /**
+     * Retrieves the balance for a given account number.
+     *
+     * @param accountNumber The account number to retrieve the balance for.
+     * @return The balance of the account as a string.
+     * @throws ResourceNotFound if the account with the given account number is not found.
+     */
+    @Override
+    public String getBalance(String accountNumber) {
+
+        return accountRepository.findAccountByAccountNumber(accountNumber)
+                .map(account -> account.getAvailableBalance().toString())
+                .orElseThrow(ResourceNotFound::new);
+    }
+
+    /**
+     * Retrieves a list of transaction responses from the given account ID.
+     *
+     * @param accountId The ID of the account to retrieve transactions from
+     * @return A list of transaction responses
+     */
+    @Override
+    public List<TransactionResponse> getTransactionsFromAccountId(String accountId) {
+
+        return transactionService.getTransactionsFromAccountId(accountId);
+    }
+
+    /**
+     * Closes the account with the specified account number.
+     *
+     * @param accountNumber The account number of the account to be closed.
+     * @return A response indicating the result of the operation.
+     * @throws ResourceNotFound If the account with the specified account number is not found.
+     * @throws AccountClosingException If the balance of the account is not zero.
+     */
+    @Override
+    public Response closeAccount(String accountNumber) {
+
+        return accountRepository.findAccountByAccountNumber(accountNumber)
+                .map(account -> {
+                    if(BigDecimal.valueOf(Double.parseDouble(getBalance(accountNumber))).compareTo(BigDecimal.ZERO) != 0) {
+                        throw new AccountClosingException("Balance should be zero");
+                    }
+                    account.setAccountStatus(AccountStatus.CLOSED);
+                    return Response.builder()
+                            .message("Account closed successfully").message(success)
+                            .build();
+                }).orElseThrow(ResourceNotFound::new);
+
+    }
+
+    /**
+     * Read the account details for a given user ID.
+     *
+     * @param userId the ID of the user
+     * @return the account details as an AccountDto object
+     * @throws ResourceNotFound if no account is found for the user
+     * @throws AccountStatusException if the account is inactive or closed
+     */
+    @Override
+    public AccountDto readAccountByUserId(Long userId) {
+
+        return accountRepository.findAccountByUserId(userId)
+                .map(account ->{
+                    if(!account.getAccountStatus().equals(AccountStatus.ACTIVE)){
+                        throw new AccountStatusException("Account is inactive/closed");
+                    }
+                    AccountDto accountDto = accountMapper.convertToDto(account);
+                    accountDto.setAccountStatus(account.getAccountStatus().toString());
+                    accountDto.setAccountType(account.getAccountType().toString());
+                    return accountDto;
+                }).orElseThrow(ResourceNotFound::new);
+    }
+}
+
+--- FILE: Account-Service\src\main\resources\application.yml ---
+spring:
+  application:
+    name: account-service
+    bad_request: 400
+    conflict: 409
+    ok: 200
+    not_found: 404
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/account_service
+    username: root
+    password: Netcracker@123
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+eureka:
+  client:
+    service-url:
+      defaultZone: http://service-registry:8761/eureka/
+
+server:
+  port: 8081
+
+# ============================================================
+# Performance Engineering Monitoring — Actuator + Prometheus
+# Spring Boot 2.7.x syntax (management.metrics.export.prometheus)
+# ============================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+  endpoint:
+    health:
+      show-details: always
+
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+    tags:
+      application: ${spring.application.name}
+
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+
+      percentiles:
+        http.server.requests: 0.50,0.95,0.99
+
+      slo:
+        http.server.requests: 100ms,250ms,500ms,1s,2s,5s
+
+--- FILE: API-Gateway\pom.xml ---
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.7.14</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>org.training</groupId>
+    <artifactId>apigateway</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>API Gateway</name>
+    <description>API Gateway</description>
+    <properties>
+        <java.version>17</java.version>
+        <spring-cloud.version>2021.0.8</spring-cloud.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <!-- Micrometer Prometheus Registry — for /actuator/prometheus endpoint -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-gateway</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
+    </dependencies>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
+
+
+--- FILE: API-Gateway\src\main\java\org\training\api\gateway\config\SecurityConfig.java ---
+package org.training.api.gateway.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
+import org.springframework.security.config.web.server.ServerHttpSecurity;
+import org.springframework.security.web.server.SecurityWebFilterChain;
+
+@Configuration
+@EnableWebFluxSecurity
+public class SecurityConfig {
+
+    @Bean
+    public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
+        http
+                .authorizeExchange()
+                //ALLOWING REGISTER API FOR DIRECT ACCESS
+                .pathMatchers("/api/users/register").permitAll()
+
+                //.anyExchange().permitAll()
+                //ALL OTHER APIS ARE AUTHENTICATED
+                .anyExchange().authenticated()
+                .and()
+                .csrf().disable()
+                .oauth2Login()
+                .and()
+                .oauth2ResourceServer()
+                .jwt();
+        return http.build();
+    }
+}
+
+--- FILE: API-Gateway\src\main\resources\application.yml ---
+server:
+  port: 8080
+
+app:
+  config:
+    keycloak:
+      url: http://localhost:8571/
+      realm: banking-service
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      routes:
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/users/**
+        - id: fund-transfer-service
+          uri: lb://fund-transfer-service
+          predicates:
+            - Path=/api/fund-transfers/**
+        - id: account-service
+          uri: lb://account-service
+          predicates:
+            - Path=/accounts/**
+        - id: sequence-generator
+          uri: lb://sequence-generator
+          predicates:
+            - Path=/sequence/**
+        - id: transaction-service
+          uri: lb://transaction-service
+          predicates:
+            - Path=/transactions/**
+        - id: fund-transfer-service
+          uri: lb://fund-transfer-service
+          predicates:
+            - Path=/fund-transfers/**
+
+  security:
+    oauth2:
+      client:
+        provider:
+          keycloak:
+            token-uri: ${app.config.keycloak.url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/token
+            authorization-uri: ${app.config.keycloak.url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/auth
+            user-name-attribute: preferred_username
+            user-info-uri: ${app.config.keycloak.url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/userinfo
+            jwk-set-uri: ${app.config.keycloak.url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/certs
+            user-info-authentication-method: header
+        registration:
+          banking-service-client:
+            provider: keycloak
+            client-id: banking-service-client
+            client-secret: 7ZXjz5ZBz9EzoBBr1reNOVfmd2XqQSwJ
+            authorization-grant-type: authorization_code
+            redirect-uri: http://localhost:8571/login/oauth2/code/keycloak
+            scope: openid
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${app.config.keycloak.url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/certs
+
+# ============================================================
+# Performance Engineering Monitoring — Actuator + Prometheus
+# Spring Boot 2.7.x / Spring Cloud Gateway (WebFlux) syntax
+# ============================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+  endpoint:
+    health:
+      show-details: always
+
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+    tags:
+      application: ${spring.application.name}
+
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+
+      percentiles:
+        http.server.requests: 0.50,0.95,0.99
+
+      slo:
+        http.server.requests: 100ms,250ms,500ms,1s,2s,5s
+
+
+--- FILE: Fund-Transfer\pom.xml ---
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.7.14</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>org.training</groupId>
+    <artifactId>fundtransfer</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>Fund Transfer</name>
+    <description>Fund Transfer</description>
+    <properties>
+        <java.version>17</java.version>
+        <spring-cloud.version>2021.0.8</spring-cloud.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <!-- Micrometer Prometheus Registry — for /actuator/prometheus endpoint -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <scope>runtime</scope>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>
+    </dependencies>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
+
+
+--- FILE: Fund-Transfer\src\main\java\org\training\fundtransfer\configuration\FeignClientConfiguration.java ---
+package org.training.fundtransfer.configuration;
+
+import feign.codec.ErrorDecoder;
+import org.springframework.cloud.openfeign.FeignClientProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class FeignClientConfiguration extends FeignClientProperties.FeignClientConfiguration {
+
+    /**
+     * Returns the error decoder for the Feign client.
+     *
+     * @return the error decoder
+     */
+    @Bean
+    public ErrorDecoder errorDecoder() {
+        return new FeignClientErrorDecoder();
+    }
+}
+
+
+--- FILE: Fund-Transfer\src\main\java\org\training\fundtransfer\controller\FundTransferController.java ---
+package org.training.fundtransfer.controller;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.training.fundtransfer.model.dto.FundTransferDto;
+import org.training.fundtransfer.model.dto.request.FundTransferRequest;
+import org.training.fundtransfer.model.dto.response.FundTransferResponse;
+import org.training.fundtransfer.service.FundTransferService;
+
+import java.util.List;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/fund-transfers")
+public class FundTransferController {
+
+    private final FundTransferService fundTransferService;
+
+    /**
+     * Handles the fund transfer request.
+     *
+     * @param fundTransferRequest The fund transfer request object.
+     * @return The response entity containing the fund transfer response.
+     */
+    @PostMapping
+    public ResponseEntity<FundTransferResponse> fundTransfer(@RequestBody FundTransferRequest fundTransferRequest) {
+        return new ResponseEntity<>(fundTransferService.fundTransfer(fundTransferRequest), HttpStatus.CREATED);
+    }
+
+    /**
+     * Retrieves the transfer details from the given reference ID.
+     *
+     * @param referenceId the reference ID of the transfer
+     * @return the transfer details as a ResponseEntity
+     */
+    @GetMapping("/{referenceId}")
+    public ResponseEntity<FundTransferDto> getTransferDetailsFromReferenceId(@PathVariable String referenceId) {
+        return new ResponseEntity<>(fundTransferService.getTransferDetailsFromReferenceId(referenceId), HttpStatus.OK);
+    }
+
+    /**
+     * Retrieves all fund transfers by account ID.
+     *
+     * @param accountId the ID of the account
+     * @return the list of fund transfer DTOs
+     */
+    @GetMapping
+    public ResponseEntity<List<FundTransferDto>> getAllTransfersByAccountId(@RequestParam String accountId) {
+        return new ResponseEntity<>(fundTransferService.getAllTransfersByAccountId(accountId), HttpStatus.OK);
+    }
+}
+
+
+--- FILE: Fund-Transfer\src\main\java\org\training\fundtransfer\exception\GlobalExceptionHandler.java ---
+package org.training.fundtransfer.exception;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+
+    @Value("${spring.application.bad_request}")
+    private String badRequest;
+
+    /**
+     * Handles the method argument validation exception.
+     *
+     * @param ex      The MethodArgumentNotValidException to handle.
+     * @param headers The HttpHeaders to include in the response.
+     * @param status  The HttpStatus to set in the response.
+     * @param request The WebRequest associated with the request.
+     * @return A ResponseEntity containing an ErrorResponse and HttpStatus.BAD_REQUEST.
+     */
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatus status, WebRequest request) {
+
+        return new ResponseEntity<>(new ErrorResponse(badRequest, ex.getLocalizedMessage()), HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Handles the GlobalException and returns a ResponseEntity object with the appropriate error response.
+     *
+     * @param globalException the GlobalException object to be handled
+     * @return a ResponseEntity object representing the error response
+     */
+    @ExceptionHandler(GlobalException.class)
+    public ResponseEntity<Object> handleGlobalException(GlobalException globalException) {
+
+        return ResponseEntity
+                .badRequest()
+                .body(ErrorResponse.builder()
+                        .errorCode(globalException.getErrorCode())
+                        .message(globalException.getMessage())
+                        .build());
+    }
+}
+
+
+--- FILE: Fund-Transfer\src\main\java\org\training\fundtransfer\external\AccountService.java ---
+package org.training.fundtransfer.external;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.training.fundtransfer.configuration.FeignClientConfiguration;
+import org.training.fundtransfer.model.dto.Account;
+import org.training.fundtransfer.model.dto.response.Response;
+
+@FeignClient(name = "account-service", configuration = FeignClientConfiguration.class)
+public interface AccountService {
+
+    /**
+     * Retrieves an account by account number.
+     *
+     * @param accountNumber The account number to search for.
+     * @return The account matching the account number.
+     */
+    @GetMapping("/accounts")
+    ResponseEntity<Account> readByAccountNumber(@RequestParam String accountNumber);
+
+    /**
+     * Updates an account with the given account number.
+     *
+     * @param accountNumber The account number of the account to be updated.
+     * @param account The updated account details.
+     * @return The response entity containing the response.
+     */
+    @PutMapping("/accounts")
+    ResponseEntity<Response> updateAccount(@RequestParam String accountNumber, @RequestBody Account account);
+}
+
+
+--- FILE: Fund-Transfer\src\main\java\org\training\fundtransfer\external\TransactionService.java ---
+package org.training.fundtransfer.external;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.training.fundtransfer.configuration.FeignClientConfiguration;
+import org.training.fundtransfer.model.dto.Transaction;
+import org.training.fundtransfer.model.dto.response.Response;
+
+import java.util.List;
+
+@FeignClient(name = "transaction-service", configuration = FeignClientConfiguration.class)
+public interface TransactionService {
+
+    /**
+     * Endpoint to make a transaction.
+     *
+     * @param transaction The transaction object containing the details of the transaction.
+     * @return The ResponseEntity containing the response of the transaction.
+     */
+    @PostMapping("/transactions")
+    ResponseEntity<Response> makeTransaction(@RequestBody Transaction transaction);
+
+    /**
+     * Make internal transactions.
+     *
+     * @param transactions         The list of transactions to be processed.
+     * @param transactionReference The reference for the transaction.
+     * @return The response entity containing the response.
+     */
+    @PostMapping("/transactions/internal")
+    ResponseEntity<Response> makeInternalTransactions(@RequestBody List<Transaction> transactions,@RequestParam String transactionReference);
+}
+
+
+--- FILE: Fund-Transfer\src\main\java\org\training\fundtransfer\model\entity\FundTransfer.java ---
+package org.training.fundtransfer.model.entity;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+import org.training.fundtransfer.model.TransactionStatus;
+import org.training.fundtransfer.model.TransferType;
+
+import javax.persistence.*;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+@Entity
+public class FundTransfer {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long fundTransferId;
+
+    private String transactionReference;
+
+    private String fromAccount;
+
+    private String toAccount;
+
+    private BigDecimal amount;
+
+    @Enumerated(EnumType.STRING)
+    private TransactionStatus status;
+
+    @Enumerated(EnumType.STRING)
+    private TransferType transferType;
+
+    @CreationTimestamp
+    private LocalDateTime transferredOn;
+}
+
+--- FILE: Fund-Transfer\src\main\java\org\training\fundtransfer\service\implementation\FundTransferServiceImpl.java ---
+package org.training.fundtransfer.service.implementation;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.training.fundtransfer.exception.AccountUpdateException;
+import org.training.fundtransfer.exception.GlobalErrorCode;
+import org.training.fundtransfer.exception.InsufficientBalance;
+import org.training.fundtransfer.exception.ResourceNotFound;
+import org.training.fundtransfer.external.AccountService;
+import org.training.fundtransfer.external.TransactionService;
+import org.training.fundtransfer.model.mapper.FundTransferMapper;
+import org.training.fundtransfer.model.TransactionStatus;
+import org.training.fundtransfer.model.TransferType;
+import org.training.fundtransfer.model.dto.Account;
+import org.training.fundtransfer.model.dto.FundTransferDto;
+import org.training.fundtransfer.model.dto.Transaction;
+import org.training.fundtransfer.model.dto.request.FundTransferRequest;
+import org.training.fundtransfer.model.dto.response.FundTransferResponse;
+import org.training.fundtransfer.model.entity.FundTransfer;
+import org.training.fundtransfer.repository.FundTransferRepository;
+import org.training.fundtransfer.service.FundTransferService;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class FundTransferServiceImpl implements FundTransferService {
+
+    private final AccountService accountService;
+    private final FundTransferRepository fundTransferRepository;
+    private final TransactionService transactionService;
+
+    @Value("${spring.application.ok}")
+    private String ok;
+
+    private final FundTransferMapper fundTransferMapper = new FundTransferMapper();
+
+    /**
+     * Transfers funds from one account to another.
+     *
+     * @param fundTransferRequest The request object containing the details of the fund transfer.
+     * @return The response object indicating the status of the fund transfer.
+     * @throws ResourceNotFound If the requested account is not found on the server.
+     * @throws AccountUpdateException If the account status is pending or inactive.
+     * @throws InsufficientBalance If the required amount to transfer is not available.
+     */
+    @Override
+    public FundTransferResponse fundTransfer(FundTransferRequest fundTransferRequest) {
+
+        Account fromAccount;
+        ResponseEntity<Account> response = accountService.readByAccountNumber(fundTransferRequest.getFromAccount());
+        if(Objects.isNull(response.getBody())){
+            log.error("requested account "+fundTransferRequest.getFromAccount()+" is not found on the server");
+            throw new ResourceNotFound("requested account not found on the server", GlobalErrorCode.NOT_FOUND);
+        }
+        fromAccount = response.getBody();
+        if (!fromAccount.getAccountStatus().equals("ACTIVE")) {
+            log.error("account status is pending or inactive, please update the account status");
+            throw new AccountUpdateException("account is status is :pending", GlobalErrorCode.NOT_ACCEPTABLE);
+        }
+        if (fromAccount.getAvailableBalance().compareTo(fundTransferRequest.getAmount()) < 0) {
+            log.error("required amount to transfer is not available");
+            throw new InsufficientBalance("requested amount is not available", GlobalErrorCode.NOT_ACCEPTABLE);
+        }
+        Account toAccount;
+        response = accountService.readByAccountNumber(fundTransferRequest.getToAccount());
+        if(Objects.isNull(response.getBody())) {
+            log.error("requested account "+fundTransferRequest.getToAccount()+" is not found on the server");
+            throw new ResourceNotFound("requested account not found on the server", GlobalErrorCode.NOT_FOUND);
+        }
+        toAccount = response.getBody();
+        String transactionId = internalTransfer(fromAccount, toAccount, fundTransferRequest.getAmount());
+        FundTransfer fundTransfer = FundTransfer.builder()
+                .transferType(TransferType.INTERNAL)
+                .amount(fundTransferRequest.getAmount())
+                .fromAccount(fromAccount.getAccountNumber())
+                .transactionReference(transactionId)
+                .status(TransactionStatus.SUCCESS)
+                .toAccount(toAccount.getAccountNumber()).build();
+
+        fundTransferRepository.save(fundTransfer);
+        return FundTransferResponse.builder()
+                .transactionId(transactionId)
+                .message("Fund transfer was successful").build();
+    }
+
+    /**
+     * Transfers funds from one account to another within the system.
+     *
+     * @param fromAccount The account to transfer funds from.
+     * @param toAccount The account to transfer funds to.
+     * @param amount The amount of funds to transfer.
+     * @return The transaction reference number.
+     */
+    private String internalTransfer(Account fromAccount, Account toAccount, BigDecimal amount) {
+
+        fromAccount.setAvailableBalance(fromAccount.getAvailableBalance().subtract(amount));
+        accountService.updateAccount(fromAccount.getAccountNumber(), fromAccount);
+
+        toAccount.setAvailableBalance(toAccount.getAvailableBalance().add(amount));
+        accountService.updateAccount(toAccount.getAccountNumber(), toAccount);
+
+        List<Transaction> transactions = List.of(
+                Transaction.builder()
+                        .accountId(fromAccount.getAccountNumber())
+                        .transactionType("INTERNAL_TRANSFER")
+                        .amount(amount.negate())
+                        .description("Internal fund transfer from "+fromAccount.getAccountNumber()+" to "+toAccount.getAccountNumber())
+                        .build(),
+                Transaction.builder()
+                        .accountId(toAccount.getAccountNumber())
+                        .transactionType("INTERNAL_TRANSFER")
+                        .amount(amount)
+                        .description("Internal fund transfer received from: "+fromAccount.getAccountNumber()).build());
+
+        String transactionReference = UUID.randomUUID().toString();
+        transactionService.makeInternalTransactions(transactions, transactionReference);
+        return transactionReference;
+    }
+
+    /**
+     * Retrieves the details of a fund transfer based on the given reference ID.
+     *
+     * @param referenceId The reference ID of the fund transfer.
+     * @return The FundTransferDto containing the details of the fund transfer.
+     * @throws ResourceNotFound if the fund transfer is not found.
+     */
+    @Override
+    public FundTransferDto getTransferDetailsFromReferenceId(String referenceId) {
+
+        return fundTransferRepository.findFundTransferByTransactionReference(referenceId)
+                .map(fundTransferMapper::convertToDto)
+                .orElseThrow(() -> new ResourceNotFound("Fund transfer not found", GlobalErrorCode.NOT_FOUND));
+    }
+
+    /**
+     * Retrieves a list of fund transfers associated with the given account ID.
+     *
+     * @param accountId The ID of the account
+     * @return A list of fund transfer DTOs
+     */
+    @Override
+    public List<FundTransferDto> getAllTransfersByAccountId(String accountId) {
+
+        return fundTransferMapper.convertToDtoList(fundTransferRepository.findFundTransferByFromAccount(accountId));
+    }
+}
+
+
+--- FILE: Fund-Transfer\src\main\resources\application.yml ---
+server:
+  port: 8085
+
+spring:
+  application:
+    name: fund-transfer-service
+    bad_request: 400
+    ok: 200
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/fund_transfer_service
+    username: root
+    password: Netcracker@123
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+    show-sql: true
+
+    properties:
+      hibernate:
+        format_sql: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://service-registry:8761/eureka/
+
+# ============================================================
+# Performance Engineering Monitoring — Actuator + Prometheus
+# Spring Boot 2.7.x syntax (management.metrics.export.prometheus)
+# ============================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+  endpoint:
+    health:
+      show-details: always
+
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+    tags:
+      application: ${spring.application.name}
+
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+
+      percentiles:
+        http.server.requests: 0.50,0.95,0.99
+
+      slo:
+        http.server.requests: 100ms,250ms,500ms,1s,2s,5s
+
+--- FILE: grafana\provisioning\dashboards\banking-performance.json ---
+{
+  "__inputs": [],
+  "__elements": {},
+  "__requires": [
+    {"type": "grafana", "id": "grafana", "name": "Grafana", "version": "9.0.0"},
+    {"type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0"},
+    {"type": "panel", "id": "gauge", "name": "Gauge", "version": ""},
+    {"type": "panel", "id": "graph", "name": "Graph", "version": ""},
+    {"type": "panel", "id": "stat", "name": "Stat", "version": ""},
+    {"type": "panel", "id": "timeseries", "name": "Time series", "version": ""},
+    {"type": "panel", "id": "table", "name": "Table", "version": ""}
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {"type": "grafana", "uid": "-- Grafana --"},
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Banking Application — Complete Performance Engineering Dashboard covering JVM, HTTP, CPU, Memory, GC, Threads, Database, Microservices, and Docker Container metrics.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "id": 1,
+      "title": "🌐 Row 1 — Overall System",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 100}, {"color": "red", "value": 500}]},
+          "unit": "reqps"
+        }
+      },
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 1},
+      "id": 2,
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "orientation": "auto", "textMode": "auto", "colorMode": "background", "graphMode": "area", "justifyMode": "auto"},
+      "title": "Total RPS",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "sum(rate(http_server_requests_seconds_count{application=~\"$service\"}[1m]))",
+          "legendFormat": "RPS"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 1}, {"color": "red", "value": 5}]},
+          "unit": "percentunit"
+        }
+      },
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 1},
+      "id": 3,
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "orientation": "auto", "textMode": "auto", "colorMode": "background", "graphMode": "none", "justifyMode": "auto"},
+      "title": "Error Rate (5xx)",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "sum(rate(http_server_requests_seconds_count{application=~\"$service\", status=~\"5..\"}[1m])) / sum(rate(http_server_requests_seconds_count{application=~\"$service\"}[1m]))",
+          "legendFormat": "Error %"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "fieldConfig": {"defaults": {"unit": "short", "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 50}, {"color": "red", "value": 200}]}}},
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 1},
+      "id": 4,
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "area", "justifyMode": "auto"},
+      "title": "Active Services",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "count(up{job=~\"api-gateway|account-service|user-service|sequence-generator|transaction-service|fund-transfer|service-registry\"} == 1)",
+          "legendFormat": "UP"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "fieldConfig": {"defaults": {"unit": "short"}},
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 1},
+      "id": 5,
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "value", "graphMode": "area", "justifyMode": "auto"},
+      "title": "Total HTTP Requests",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "sum(increase(http_server_requests_seconds_count{application=~\"$service\"}[5m]))",
+          "legendFormat": "Requests (5m)"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "fieldConfig": {"defaults": {"unit": "s", "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.5}, {"color": "red", "value": 2}]}}},
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 1},
+      "id": 6,
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "none", "justifyMode": "auto"},
+      "title": "Avg Response Time",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "sum(rate(http_server_requests_seconds_sum{application=~\"$service\"}[1m])) / sum(rate(http_server_requests_seconds_count{application=~\"$service\"}[1m]))",
+          "legendFormat": "Avg Latency"
+        }
+      ]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 5},
+      "id": 10,
+      "title": "⏱️ Row 2 — Latency (p50 / p90 / p95 / p99 / Max)",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "fieldConfig": {
+        "defaults": {"unit": "s", "custom": {"lineWidth": 2}},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "p50"},  "properties": [{"id": "color", "value": {"fixedColor": "#73BF69", "mode": "fixed"}}]},
+          {"matcher": {"id": "byName", "options": "p90"},  "properties": [{"id": "color", "value": {"fixedColor": "#F2CC0C", "mode": "fixed"}}]},
+          {"matcher": {"id": "byName", "options": "p95"},  "properties": [{"id": "color", "value": {"fixedColor": "#FF9830", "mode": "fixed"}}]},
+          {"matcher": {"id": "byName", "options": "p99"},  "properties": [{"id": "color", "value": {"fixedColor": "#F2495C", "mode": "fixed"}}]},
+          {"matcher": {"id": "byName", "options": "avg"},  "properties": [{"id": "color", "value": {"fixedColor": "#5794F2", "mode": "fixed"}}]}
+        ]
+      },
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 6},
+      "id": 11,
+      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max", "mean"]}},
+      "title": "Response Time Percentiles — ${service}",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "histogram_quantile(0.50, sum(rate(http_server_requests_seconds_bucket{application=~\"$service\", uri!~\"/actuator.*\"}[5m])) by (le))",
+          "legendFormat": "p50"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "histogram_quantile(0.90, sum(rate(http_server_requests_seconds_bucket{application=~\"$service\", uri!~\"/actuator.*\"}[5m])) by (le))",
+          "legendFormat": "p90"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=~\"$service\", uri!~\"/actuator.*\"}[5m])) by (le))",
+          "legendFormat": "p95"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket{application=~\"$service\", uri!~\"/actuator.*\"}[5m])) by (le))",
+          "legendFormat": "p99"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "sum(rate(http_server_requests_seconds_sum{application=~\"$service\", uri!~\"/actuator.*\"}[5m])) / sum(rate(http_server_requests_seconds_count{application=~\"$service\", uri!~\"/actuator.*\"}[5m]))",
+          "legendFormat": "avg"
+        }
+      ]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 14},
+      "id": 20,
+      "title": "📊 Row 3 — HTTP Status Distribution",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "fieldConfig": {"defaults": {"unit": "reqps", "custom": {"lineWidth": 2}},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "2xx"}, "properties": [{"id": "color", "value": {"fixedColor": "#73BF69", "mode": "fixed"}}]},
+          {"matcher": {"id": "byName", "options": "4xx"}, "properties": [{"id": "color", "value": {"fixedColor": "#F2CC0C", "mode": "fixed"}}]},
+          {"matcher": {"id": "byName", "options": "5xx"}, "properties": [{"id": "color", "value": {"fixedColor": "#F2495C", "mode": "fixed"}}]}
+        ]
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 15},
+      "id": 21,
+      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "right", "calcs": ["lastNotNull"]}},
+      "title": "HTTP Status Rate — ${service}",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "expr": "sum(rate(http_server_requests_seconds_count{application=~\"$service\", status=~\"2..\"}[1m]))",
+          "legendF...(truncated)
+
+--- FILE: postman_collection\Banking Core Services.postman_collection.json ---
+{
+	"info": {
+		"_postman_id": "eb226ab6-3552-4727-b99a-f3a5800c7a7f",
+		"name": "Banking Core Services",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "13046684"
+	},
+	"item": [
+		{
+			"name": "API Gateway",
+			"item": [
+				{
+					"name": "User Service",
+					"item": [
+						{
+							"name": "create a user",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"firstName\" : \"Adam\",\r\n    \"lastName\" : \"Sanadi\",\r\n    \"emailId\" : \"adamsanadi1234@gmail.com\",\r\n    \"contactNumber\" : \"8547159267\",\r\n    \"password\" : \"Adam@1234\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/api/users/register",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"users",
+										"register"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "read all users",
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/api/users",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"users"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "update user status",
+							"request": {
+								"method": "PATCH",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"status\" : \"APPROVED\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/api/users/2",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"users",
+										"2"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "read user by Id",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/users/1",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"users",
+										"1"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "update user",
+							"request": {
+								"method": "PUT",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"firstName\" : \"Kishan\",\r\n    \"lastName\" : \"Kulkarni\",\r\n    \"contactNo\" : \"9562148579\",\r\n    \"address\" : \"Behind Prasad Lodge, Extension Masari\",\r\n    \"gender\" : \"Male\",\r\n    \"occupation\" : \"Student\",\r\n    \"martialStatus\" : \"Single\",\r\n    \"nationality\" : \"Indian\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/api/users/2",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"users",
+										"2"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "read user by account id",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/users/accounts/0600140000005",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"users",
+										"accounts",
+										"0600140000005"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Fund Transfer Service",
+					"item": [
+						{
+							"name": "fund transfer",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"fromAccount\" : \"0600140000001\",\r\n    \"toAccount\" : \"0600140000002\",\r\n    \"amount\" : \"500\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/fund-transfers",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"fund-transfers"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "get details of transfer from reference id",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/fund-transfers/950e07f5-09ce-4fee-be66-3377233458ad",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"fund-transfers",
+										"950e07f5-09ce-4fee-be66-3377233458ad"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "get fund transfer details that are made from an account",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/fund-transfers?accountId=0600140000002",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"fund-transfers"
+									],
+									"query": [
+										{
+											"key": "accountId",
+											"value": "0600140000002"
+										}
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Account Service",
+					"item": [
+						{
+							"name": "create Account",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"accountType\" : \"SAVINGS_ACCOUNT\",\r\n    \"userId\" : \"3\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/accounts",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"accounts"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "update account status",
+							"request": {
+								"method": "PATCH",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"accountStatus\" : \"ACTIVE\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/accounts?accountNumber=0600140000002",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"accounts"
+									],
+									"query": [
+										{
+											"key": "accountNumber",
+											"value": "0600140000002"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "read account by account number",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/accounts?accountNumber=0600140000001",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"accounts"
+									],
+									"query": [
+										{
+											"key": "accountNumber",
+											"value": "0600140000001"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "get transactions from account Id",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/accounts/0600140000001/transactions",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"accounts",
+										"0600140000001",
+										"transactions"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "closing account",
+							"request": {
+								"method": "PUT",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/accounts/closure?accountNumber=0600140000001",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"accounts",
+										"closure"
+									],
+									"query": [
+										{
+											"key": "accountNumber",
+											"value": "0600140000001"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "read account details from user id",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/accounts/8",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"accounts",
+										"8"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Sequence Generator",
+					"item": [
+						{
+							"name": "generate account number",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/sequence",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"sequence"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Transaction Service",
+					"item": [
+						{
+							"name": "make transactions",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"accountId\" : \"0600140000001\",\r\n    \"transactionType\" : \"WITHDRAWAL\",\r\n    \"amount\" : \"200\",\r\n    \"description\" : \"200 has successfully debited from account\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/transactions",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"transactions"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "get transaction from account Id",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/transactions?accountId=060014...(truncated)
+
+--- FILE: Sequence-Generator\pom.xml ---
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.7.15</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>org.training</groupId>
+    <artifactId>sequencegenerator</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>Sequence Generator</name>
+    <description>Sequence Generator</description>
+    <properties>
+        <java.version>17</java.version>
+        <spring-cloud.version>2021.0.8</spring-cloud.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <!-- Micrometer Prometheus Registry — for /actuator/prometheus endpoint -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <scope>runtime</scope>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
+
+
+--- FILE: Sequence-Generator\src\main\java\org\training\sequence\generator\controller\SequenceController.java ---
+package org.training.sequence.generator.controller;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.training.sequence.generator.model.entity.Sequence;
+import org.training.sequence.generator.service.SequenceService;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/sequence")
+public class SequenceController {
+
+    private final SequenceService sequenceService;
+
+    /**
+     * Generates an account number.
+     *
+     * @return The generated account number.
+     */
+    @PostMapping
+    public Sequence generateAccountNumber() {
+        return sequenceService.create();
+    }
+}
+
+
+--- FILE: Sequence-Generator\src\main\java\org\training\sequence\generator\model\entity\Sequence.java ---
+package org.training.sequence.generator.model.entity;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+
+@Entity
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+public class Sequence {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private long sequenceId;
+
+    private long accountNumber;
+}
+
+
+--- FILE: Sequence-Generator\src\main\java\org\training\sequence\generator\service\implementation\SequenceServiceImpl.java ---
+package org.training.sequence.generator.service.implementation;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.training.sequence.generator.model.entity.Sequence;
+import org.training.sequence.generator.reporitory.SequenceRepository;
+import org.training.sequence.generator.service.SequenceService;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class SequenceServiceImpl implements SequenceService {
+
+    private final SequenceRepository sequenceRepository;
+
+    /**
+     * Create a new account number.
+     *
+     * @return The newly created account number.
+     */
+    @Override
+    public Sequence create() {
+
+        log.info("creating a account number");
+        return sequenceRepository.findById(1L)
+                .map(sequence -> {
+                    sequence.setAccountNumber(sequence.getAccountNumber() + 1);
+                    return sequenceRepository.save(sequence);
+                }).orElseGet(() -> sequenceRepository.save(Sequence.builder().accountNumber(1L).build()));
+    }
+}
+
+
+--- FILE: Sequence-Generator\src\main\resources\application.yml ---
+spring:
+  application:
+    name: sequence-generator
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/sequence_generator
+    username: root
+    password: Netcracker@123
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+eureka:
+  client:
+    service-url:
+      defaultZone: http://service-registry:8761/eureka/
+
+server:
+  port: 8083
+
+# ============================================================
+# Performance Engineering Monitoring — Actuator + Prometheus
+# Spring Boot 2.7.x syntax (management.metrics.export.prometheus)
+# ============================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+  endpoint:
+    health:
+      show-details: always
+
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+    tags:
+      application: ${spring.application.name}
+
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+
+      percentiles:
+        http.server.requests: 0.50,0.95,0.99
+
+      slo:
+        http.server.requests: 100ms,250ms,500ms,1s,2s,5s
+
+--- FILE: Service-Registry\pom.xml ---
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.7.14</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>org.training</groupId>
+    <artifactId>serviceregistry</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>Service Registry</name>
+    <description>Service Registry</description>
+    <properties>
+        <java.version>17</java.version>
+        <spring-cloud.version>2021.0.8</spring-cloud.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <!-- Micrometer Prometheus Registry — for /actuator/prometheus endpoint -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-server</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
+
+--- FILE: Service-Registry\src\main\resources\application.yml ---
+server:
+  port: 8761
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+    register-with-eureka: false
+    fetch-registry: false
+
+spring:
+  application:
+    name: SERVICE-REGISTRY
+
+# ============================================================
+# Performance Engineering Monitoring — Actuator + Prometheus
+# Spring Boot 2.7.x syntax (management.metrics.export.prometheus)
+# ============================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: ${spring.application.name}
+
+
+--- FILE: Transaction-Service\pom.xml ---
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.7.15</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>org.training</groupId>
+    <artifactId>transactions</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>Transaction Service</name>
+    <description>Transaction Service</description>
+    <properties>
+        <java.version>17</java.version>
+        <spring-cloud.version>2021.0.8</spring-cloud.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <!-- Micrometer Prometheus Registry — for /actuator/prometheus endpoint -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <scope>runtime</scope>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
+
+
+--- FILE: Transaction-Service\src\main\java\org\training\transactions\configuration\FeignClientConfiguration.java ---
+package org.training.transactions.configuration;
+
+import feign.codec.ErrorDecoder;
+import org.springframework.cloud.openfeign.FeignClientProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class FeignClientConfiguration extends FeignClientProperties.FeignClientConfiguration {
+
+    /**
+     * Returns an instance of ErrorDecoder that will be used to decode errors returned by Feign clients.
+     *
+     * @return the ErrorDecoder instance
+     */
+    @Bean
+    public ErrorDecoder errorDecoder() {
+        return new FeignClientErrorDecoder();
+    }
+}
+
+
+--- FILE: Transaction-Service\src\main\java\org\training\transactions\controller\TransactionController.java ---
+package org.training.transactions.controller;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.training.transactions.exception.ResourceNotFound;
+import org.training.transactions.model.dto.TransactionDto;
+import org.training.transactions.model.response.Response;
+import org.training.transactions.model.response.TransactionRequest;
+import org.training.transactions.service.TransactionService;
+
+import java.util.List;
+
+@Slf4j
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/transactions")
+public class TransactionController {
+
+    private final TransactionService transactionService;
+
+    /**
+     * Add transactions to the system.
+     *
+     * @param transactionDto The transaction data to be added.
+     * @return The response entity with the added transaction data.
+     */
+    @PostMapping
+    public ResponseEntity<Response> addTransactions(@RequestBody TransactionDto transactionDto) {
+        return new ResponseEntity<>(transactionService.addTransaction(transactionDto), HttpStatus.CREATED);
+    }
+
+    /**
+     * Handles the endpoint for making internal transactions.
+     *
+     * @param transactionDtos       The list of transaction DTOs.
+     * @param transactionReference  The transaction reference.
+     * @return                      The response entity containing the response.
+     */
+    @PostMapping("/internal")
+    public ResponseEntity<Response> makeInternalTransaction(@RequestBody List<TransactionDto> transactionDtos,@RequestParam String transactionReference) {
+        return new ResponseEntity<>(transactionService.internalTransaction(transactionDtos, transactionReference), HttpStatus.CREATED);
+    }
+
+    /**
+     * Retrieves a list of transactions for a given account ID.
+     *
+     * @param accountId The ID of the account
+     * @return The list of transactions
+     */
+    @GetMapping
+    public ResponseEntity<List<TransactionRequest>> getTransactions(@RequestParam String accountId) {
+        List<TransactionRequest> transactionRequests = transactionService.getTransaction(accountId);
+        if(transactionRequests.isEmpty()) throw new ResourceNotFound("101" , "Empty transaction requests list");
+        return new ResponseEntity<>(transactionRequests, HttpStatus.OK);
+    }
+
+    /**
+     * Retrieves a list of transaction requests based on the provided transaction reference ID.
+     *
+     * @param referenceId The transaction reference ID
+     * @return A ResponseEntity object containing the list of transaction requests
+     */
+    @GetMapping("/{referenceId}")
+    public ResponseEntity<List<TransactionRequest>> getTransactionByTransactionReference(@PathVariable String referenceId) {
+        List<TransactionRequest> transactionRequests = transactionService.getTransactionByTransactionReference(referenceId);
+        if(transactionRequests.isEmpty()) throw new ResourceNotFound("101" , "Empty transaction requests list");
+        return new ResponseEntity<>(transactionRequests, HttpStatus.OK);
+    }
+}
+
+
+--- FILE: Transaction-Service\src\main\java\org\training\transactions\exception\GlobalExceptionHandler.java ---
+package org.training.transactions.exception;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+
+@Slf4j
+@RestControllerAdvice
+public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+
+    /**
+     * Handles global exceptions and returns a ResponseEntity with an ErrorResponse.
+     *
+     * @param globalException The global exception to handle.
+     * @return A ResponseEntity containing the error response.
+     */
+
+    @ExceptionHandler(GlobalException.class)
+    public ResponseEntity<Object> handleGlobalException(GlobalException globalException) {
+
+        return ResponseEntity
+                .badRequest()
+                .body(ErrorResponse.builder()
+                        .errorCode(globalException.getErrorCode())
+                        .message(globalException.getMessage())
+                        .build());
+    }
+}
+
+
+--- FILE: Transaction-Service\src\main\java\org\training\transactions\external\AccountService.java ---
+package org.training.transactions.external;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.training.transactions.configuration.FeignClientConfiguration;
+import org.training.transactions.model.external.Account;
+import org.training.transactions.model.response.Response;
+
+@FeignClient(name = "account-service", configuration = FeignClientConfiguration.class)
+public interface AccountService {
+
+    /**
+     * Retrieves an account by account number.
+     *
+     * @param accountNumber The account number.
+     * @return The account matching the account number.
+     */
+    @GetMapping("/accounts")
+    ResponseEntity<Account> readByAccountNumber(@RequestParam String accountNumber);
+
+    /**
+     * Update an account with the given account number.
+     *
+     * @param accountNumber The account number of the account to be updated.
+     * @param account The updated account information.
+     * @return The response entity containing the response.
+     */
+    @PutMapping("/accounts")
+    ResponseEntity<Response> updateAccount(@RequestParam String accountNumber, @RequestBody Account account);
+}
+
+
+--- FILE: Transaction-Service\src\main\java\org\training\transactions\model\entity\Transaction.java ---
+package org.training.transactions.model.entity;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+import org.training.transactions.model.TransactionStatus;
+import org.training.transactions.model.TransactionType;
+
+import javax.persistence.*;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+@Entity
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class Transaction {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long transactionId;
+
+    private String referenceId;
+
+    private String accountId;
+
+    @Enumerated(EnumType.STRING)
+    private TransactionType transactionType;
+
+    private BigDecimal amount;
+
+    @CreationTimestamp
+    private LocalDateTime transactionDate;
+
+    @Enumerated(EnumType.STRING)
+    private TransactionStatus status;
+
+    private String comments;
+}
+
+
+--- FILE: Transaction-Service\src\main\java\org\training\transactions\service\implementation\TransactionServiceImpl.java ---
+package org.training.transactions.service.implementation;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.training.transactions.exception.AccountStatusException;
+import org.training.transactions.exception.GlobalErrorCode;
+import org.training.transactions.exception.InsufficientBalance;
+import org.training.transactions.exception.ResourceNotFound;
+import org.training.transactions.external.AccountService;
+import org.training.transactions.model.TransactionStatus;
+import org.training.transactions.model.TransactionType;
+import org.training.transactions.model.dto.TransactionDto;
+import org.training.transactions.model.entity.Transaction;
+import org.training.transactions.model.external.Account;
+import org.training.transactions.model.mapper.TransactionMapper;
+import org.training.transactions.model.response.Response;
+import org.training.transactions.model.response.TransactionRequest;
+import org.training.transactions.repository.TransactionRepository;
+import org.training.transactions.service.TransactionService;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class TransactionServiceImpl implements TransactionService {
+
+    private final TransactionRepository transactionRepository;
+    private final AccountService accountService;
+
+    private final TransactionMapper transactionMapper = new TransactionMapper();
+
+    @Value("${spring.application.ok}")
+    private String ok;
+
+    /**
+     * Adds a transaction based on the provided TransactionDto.
+     *
+     * @param  transactionDto  the TransactionDto object containing the transaction details
+     * @return                 a Response object indicating the success of the transaction
+     * @throws ResourceNotFound     if the requested account is not found on the server
+     * @throws AccountStatusException     if the account is inactive or closed
+     * @throws InsufficientBalance     if there is insufficient balance in the account
+     */
+    @Override
+    public Response addTransaction(TransactionDto transactionDto) {
+
+        ResponseEntity<Account> response = accountService.readByAccountNumber(transactionDto.getAccountId());
+        if (Objects.isNull(response.getBody())){
+            throw new ResourceNotFound("Requested account not found on the server", GlobalErrorCode.NOT_FOUND);
+        }
+        Account account = response.getBody();
+        Transaction transaction = transactionMapper.convertToEntity(transactionDto);
+        if(transactionDto.getTransactionType().equals(TransactionType.DEPOSIT.toString())) {
+            account.setAvailableBalance(account.getAvailableBalance().add(transactionDto.getAmount()));
+        } else if (transactionDto.getTransactionType().equals(TransactionType.WITHDRAWAL.toString())) {
+            if(!account.getAccountStatus().equals("ACTIVE")){
+                log.error("account is either inactive/closed, cannot process the transaction");
+                throw new AccountStatusException("account is inactive or closed");
+            }
+            if(account.getAvailableBalance().compareTo(transactionDto.getAmount()) < 0){
+                log.error("insufficient balance in the account");
+                throw new InsufficientBalance("Insufficient balance in the account");
+            }
+            transaction.setAmount(transactionDto.getAmount().negate());
+            account.setAvailableBalance(account.getAvailableBalance().subtract(transactionDto.getAmount()));
+        }
+
+        transaction.setTransactionType(TransactionType.valueOf(transactionDto.getTransactionType()));
+        transaction.setComments(transactionDto.getDescription());
+        transaction.setStatus(TransactionStatus.COMPLETED);
+        transaction.setReferenceId(UUID.randomUUID().toString());
+
+        accountService.updateAccount(transactionDto.getAccountId(), account);
+        transactionRepository.save(transaction);
+
+        return Response.builder()
+                .message("Transaction completed successfully")
+                .responseCode(ok).build();
+    }
+
+    /**
+     * Completes the internal transaction by updating the status of each transaction
+     * and saving them to the transaction repository.
+     *
+     * @param transactionDtos the list of transaction DTOs to be processed
+     * @return a response indicating the completion of the transaction
+     */
+    @Override
+    public Response internalTransaction(List<TransactionDto> transactionDtos, String transactionReference) {
+
+        // Convert the list of transaction DTOs to entities
+        List<Transaction> transactions = transactionMapper.convertToEntityList(transactionDtos);
+
+        // Update the status of each transaction to 'COMPLETED'
+        transactions.forEach(transaction -> {
+            transaction.setTransactionType(TransactionType.INTERNAL_TRANSFER);
+            transaction.setStatus(TransactionStatus.COMPLETED);
+            transaction.setReferenceId(transactionReference);
+        });
+
+        // Save all the completed transactions to the transaction repository
+        transactionRepository.saveAll(transactions);
+
+        // Return the response indicating the completion of the transaction
+        return Response.builder()
+                .responseCode(ok)
+                .message("Transaction completed successfully").build();
+    }
+
+    /**
+     * Retrieves a list of transaction requests for a given account ID.
+     *
+     * @param accountId the ID of the account
+     * @return a list of transaction requests
+     */
+    @Override
+    public List<TransactionRequest> getTransaction(String accountId) {
+
+        return transactionRepository.findTransactionByAccountId(accountId)
+                .stream().map(transaction -> {
+                    TransactionRequest transactionRequest = new TransactionRequest();
+                    BeanUtils.copyProperties(transaction, transactionRequest);
+                    transactionRequest.setTransactionStatus(transaction.getStatus().toString());
+                    transactionRequest.setLocalDateTime(transaction.getTransactionDate());
+                    transactionRequest.setTransactionType(transaction.getTransactionType().toString());
+                    return transactionRequest;
+                }).collect(Collectors.toList());
+    }
+
+    /**
+     * Retrieves a list of TransactionRequests based on a transaction reference.
+     *
+     * @param transactionReference The reference ID of the transaction
+     * @return List of TransactionRequests matching the transaction reference
+     */
+    @Override
+    public List<TransactionRequest> getTransactionByTransactionReference(String transactionReference) {
+
+        return transactionRepository.findTransactionByReferenceId(transactionReference)
+                .stream().map(transaction -> {
+                    TransactionRequest transactionRequest = new TransactionRequest();
+                    BeanUtils.copyProperties(transaction, transactionRequest);
+                    transactionRequest.setTransactionStatus(transaction.getStatus().toString());
+                    transactionRequest.setLocalDateTime(transaction.getTransactionDate());
+                    transactionRequest.setTransactionType(transaction.getTransactionType().toString());
+                    return transactionRequest;
+                }).collect(Collectors.toList());
+    }
+}
+
+
+--- FILE: Transaction-Service\src\main\resources\application.yml ---
+spring:
+  application:
+    name: transaction-service
+    bad_request: 400
+    conflict: 409
+    ok: 200
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/transaction_service
+    username: root
+    password: Netcracker@123
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://service-registry:8761/eureka/
+
+server:
+  port: 8084
+
+# ============================================================
+# Performance Engineering Monitoring — Actuator + Prometheus
+# Spring Boot 2.7.x syntax (management.metrics.export.prometheus)
+# ============================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+  endpoint:
+    health:
+      show-details: always
+
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+    tags:
+      application: ${spring.application.name}
+
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+
+      percentiles:
+        http.server.requests: 0.50,0.95,0.99
+
+      slo:
+        http.server.requests: 100ms,250ms,500ms,1s,2s,5s
+
+--- FILE: User-Service\pom.xml ---
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.7.14</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>org.training</groupId>
+    <artifactId>userservice</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>User Service</name>
+    <description>User Service</description>
+    <properties>
+        <java.version>17</java.version>
+        <spring-cloud.version>2021.0.8</spring-cloud.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <!-- Micrometer Prometheus Registry — for /actuator/prometheus endpoint -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>javax.ws.rs</groupId>
+                    <artifactId>jsr311-api</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <scope>runtime</scope>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/org.keycloak/keycloak-admin-client -->
+        <dependency>
+            <groupId>org.keycloak</groupId>
+            <artifactId>keycloak-admin-client</artifactId>
+            <version>21.0.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.modelmapper</groupId>
+            <artifactId>modelmapper</artifactId>
+            <version>3.1.1</version>
+        </dependency>
+
+    </dependencies>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
+
+
+--- FILE: User-Service\src\main\java\org\training\user\service\config\Configurations.java ---
+package org.training.user.service.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+
+@Configuration
+public class Configurations {
+
+    /**
+     * Creates and returns a BCryptPasswordEncoder instance.
+     *
+     * @return The BCryptPasswordEncoder instance.
+     */
+    @Bean
+    public BCryptPasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+}
+
+
+--- FILE: User-Service\src\main\java\org\training\user\service\config\FeignClientConfiguration.java ---
+package org.training.user.service.config;
+
+import feign.codec.ErrorDecoder;
+import org.springframework.cloud.openfeign.FeignClientProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class FeignClientConfiguration extends FeignClientProperties.FeignClientConfiguration {
+
+    /**
+     * Returns an ErrorDecoder instance for the Feign client.
+     *
+     * @return the ErrorDecoder instance
+     */
+    @Bean
+    public ErrorDecoder errorDecoder() {
+        return new FeignClientErrorDecoder();
+    }
+}
+
+
+--- FILE: User-Service\src\main\java\org\training\user\service\controller\UserController.java ---
+package org.training.user.service.controller;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.training.user.service.model.dto.CreateUser;
+import org.training.user.service.model.dto.UserDto;
+import org.training.user.service.model.dto.UserUpdate;
+import org.training.user.service.model.dto.UserUpdateStatus;
+import org.training.user.service.model.dto.response.Response;
+import org.training.user.service.service.UserService;
+
+import java.util.List;
+
+@Slf4j
+@RestController
+@RequestMapping("/api/users")
+@RequiredArgsConstructor
+public class UserController {
+
+    private final UserService userService;
+
+    /**
+     * Creates a new user.
+     *
+     * @param userDto the user data transfer object
+     * @return the response entity containing the response
+     */
+    @PostMapping("/register")
+    public ResponseEntity<Response> createUser(@RequestBody CreateUser userDto) {
+        log.info("creating user with: {}", userDto.toString());
+        return ResponseEntity.ok(userService.createUser(userDto));
+    }
+
+    /**
+     * Retrieves all users.
+     *
+     * @return The list of user DTOs
+     */
+    @GetMapping
+    public ResponseEntity<List<UserDto>> readAllUsers() {
+        return ResponseEntity.ok(userService.readAllUsers());
+    }
+
+    /**
+     * Retrieves a user by their authentication ID.
+     *
+     * @param authId The authentication ID of the user.
+     * @return The response entity containing the user DTO.
+     */
+    @GetMapping("auth/{authId}")
+    public ResponseEntity<UserDto> readUserByAuthId(@PathVariable String authId) {
+        log.info("reading user by authId");
+        return ResponseEntity.ok(userService.readUser(authId));
+    }
+
+    /**
+     * Updates the status of a user.
+     *
+     * @param id The ID of the user to update.
+     * @param userUpdate The updated status of the user.
+     * @return The response entity containing the updated user and HTTP status.
+     */
+    @PatchMapping("/{id}")
+    public ResponseEntity<Response> updateUserStatus(@PathVariable Long id, @RequestBody UserUpdateStatus userUpdate) {
+        log.info("updating the user with: {}", userUpdate.toString());
+        return new ResponseEntity<>(userService.updateUserStatus(id, userUpdate), HttpStatus.OK);
+    }
+
+    /**
+     * Updates a user with the given ID.
+     *
+     * @param id The ID of the user to update.
+     * @param userUpdate The updated user information.
+     * @return The response with the updated user information.
+     */
+    @PutMapping("{id}")
+    public ResponseEntity<Response> updateUser(@PathVariable Long id, @RequestBody UserUpdate userUpdate) {
+        return new ResponseEntity<>(userService.updateUser(id, userUpdate), HttpStatus.OK);
+    }
+
+    /**
+     * Retrieves a user by their ID.
+     *
+     * @param userId the ID of the user to retrieve
+     * @return the user details as a ResponseEntity
+     */
+    @GetMapping("/{userId}")
+    public ResponseEntity<UserDto> readUserById(@PathVariable Long userId) {
+        log.info("reading user by ID");
+        return ResponseEntity.ok(userService.readUserById(userId));
+    }
+
+    /**
+     * Retrieves the user with the specified account ID.
+     *
+     * @param accountId The account ID of the user to retrieve.
+     * @return The user DTO associated with the account ID.
+     */
+    @GetMapping("/accounts/{accountId}")
+    public ResponseEntity<UserDto> readUserByAccountId(@PathVariable String accountId) {
+        return ResponseEntity.ok(userService.readUserByAccountId(accountId));
+    }
+}
+
+
+--- FILE: User-Service\src\main\java\org\training\user\service\exception\GlobalExceptionHandler.java ---
+package org.training.user.service.exception;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+
+    @Value("${spring.application.bad_request}")
+    private String errorCodeBadRequest;
+
+    @Value("${spring.application.conflict}")
+    private String errorCodeConflict;
+
+    @Value("${spring.application.not_found}")
+    private String errorCodeNotFound;
+
+    /**
+     * Handles the case when a method argument is not valid.
+     *
+     * @param ex The MethodArgumentNotValidException that was thrown.
+     * @param headers The HttpHeaders object for the response.
+     * @param status The HttpStatus for the response.
+     * @param request The WebRequest object for the response.
+     * @return A ResponseEntity containing an ErrorResponse object with the error code and localized message, and the HTTP status code.
+     */
+    @Override
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatus status, WebRequest request) {
+
+        return new ResponseEntity<>(new ErrorResponse(errorCodeBadRequest, ex.getLocalizedMessage()), HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Handles global exceptions.
+     *
+     * @param globalException The global exception to handle.
+     * @return The response entity with the error response.
+     */
+    @ExceptionHandler(GlobalException.class)
+    public ResponseEntity<Object> handleGlobalException(GlobalException globalException) {
+
+        return ResponseEntity
+                .badRequest()
+                .body(ErrorResponse.builder()
+                        .errorMessage(globalException.getMessage())
+                        .errorCode(globalException.getErrorCode())
+                        .build());
+    }
+
+}
+
+
+--- FILE: User-Service\src\main\java\org\training\user\service\external\AccountService.java ---
+package org.training.user.service.external;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.cloud.openfeign.FeignClientProperties;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.training.user.service.model.external.Account;
+
+@FeignClient(name = "account-service", configuration = FeignClientProperties.FeignClientConfiguration.class)
+public interface AccountService {
+
+    /**
+     * Retrieves an account by its account number.
+     *
+     * @param  accountNumber  the account number to search for
+     * @return                the ResponseEntity containing the account
+     */
+    @GetMapping("/accounts")
+    ResponseEntity<Account> readByAccountNumber(@RequestParam String accountNumber);
+}
+
+
+--- FILE: User-Service\src\main\java\org\training\user\service\model\entity\User.java ---
+package org.training.user.service.model.entity;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+import org.training.user.service.model.Status;
+
+import javax.persistence.*;
+import java.time.LocalDate;
+
+@Entity
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+@Data
+public class User {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long userId;
+
+    private String emailId;
+
+    private String contactNo;
+
+    private String authId;
+
+    private String identificationNumber;
+
+    @CreationTimestamp
+    private LocalDate creationOn;
+
+    @Enumerated(EnumType.STRING)
+    private Status status;
+
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "user_profile_id", referencedColumnName = "userProfileId")
+    private UserProfile userProfile;
+}
+
+--- FILE: User-Service\src\main\java\org\training\user\service\model\entity\UserProfile.java ---
+package org.training.user.service.model.entity;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+
+@Entity
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class UserProfile {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long userProfileId;
+
+    private String firstName;
+
+    private String lastName;
+
+    private String gender;
+
+    private String address;
+
+    private String occupation;
+
+    private String martialStatus;
+
+    private String nationality;
+}
+
+
+--- FILE: User-Service\src\main\java\org\training\user\service\service\implementation\KeycloakServiceImpl.java ---
+package org.training.user.service.service.implementation;
+
+import lombok.RequiredArgsConstructor;
+import org.keycloak.admin.client.resource.UserResource;
+import org.keycloak.admin.client.resource.UsersResource;
+import org.keycloak.representations.idm.UserRepresentation;
+import org.springframework.stereotype.Service;
+import org.training.user.service.config.KeyCloakManager;
+import org.training.user.service.service.KeycloakService;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class KeycloakServiceImpl implements KeycloakService {
+
+    private final KeyCloakManager keyCloakManager;
+
+    /**
+     * Creates a new user in the KeyCloak system.
+     *
+     * @param  userRepresentation  the user representation object containing the user details
+     * @return                     the status code indicating the success or failure of the user creation
+     */
+    @Override
+    public Integer createUser(UserRepresentation userRepresentation) {
+        return keyCloakManager.getKeyCloakInstanceWithRealm().users().create(userRepresentation).getStatus();
+    }
+
+    /**
+     * Retrieves a list of UserRepresentation objects based on the provided email ID.
+     *
+     * @param  emailId  the email ID of the user
+     * @return          a list of UserRepresentation objects
+     */
+    @Override
+    public List<UserRepresentation> readUserByEmail(String emailId) {
+
+        return keyCloakManager.getKeyCloakInstanceWithRealm().users().search(emailId);
+    }
+
+    /**
+     * Retrieves a list of user representations based on the provided authentication IDs.
+     *
+     * @param  authIds  a list of authentication IDs
+     * @return          a list of user representations
+     */
+    @Override
+    public List<UserRepresentation> readUsers(List<String> authIds) {
+
+        return authIds.stream().map(authId -> {
+            UserResource usersResource = keyCloakManager.getKeyCloakInstanceWithRealm().users().get(authId);
+            return usersResource.toRepresentation();
+        }).collect(Collectors.toList());
+    }
+
+    /**
+     * Retrieves a user representation based on the provided authentication ID.
+     *
+     * @param  authId  the authentication ID of the user
+     * @return         the user representation object
+     */
+    @Override
+    public UserRepresentation readUser(String authId) {
+
+        UsersResource userResource = keyCloakManager.getKeyCloakInstanceWithRealm().users();
+
+        return userResource.get(authId).toRepresentation();
+    }
+
+    /**
+     * Updates the user with the provided user representation.
+     *
+     * @param  userRepresentation  the user representation to update the user with
+     */
+    @Override
+    public void updateUser(UserRepresentation userRepresentation) {
+
+        keyCloakManager.getKeyCloakInstanceWithRealm().users()
+                .get(userRepresentation.getId()).update(userRepresentation);
+    }
+}
+
+
+--- FILE: User-Service\src\main\java\org\training\user\service\service\implementation\UserServiceImpl.java ---
+package org.training.user.service.service.implementation;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.keycloak.representations.idm.CredentialRepresentation;
+import org.keycloak.representations.idm.UserRepresentation;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.training.user.service.exception.EmptyFields;
+import org.training.user.service.exception.ResourceConflictException;
+import org.training.user.service.exception.ResourceNotFound;
+import org.training.user.service.external.AccountService;
+import org.training.user.service.model.Status;
+import org.training.user.service.model.dto.CreateUser;
+import org.training.user.service.model.dto.UserDto;
+import org.training.user.service.model.dto.UserUpdate;
+import org.training.user.service.model.dto.UserUpdateStatus;
+import org.training.user.service.model.dto.response.Response;
+import org.training.user.service.model.entity.User;
+import org.training.user.service.model.entity.UserProfile;
+import org.training.user.service.model.external.Account;
+import org.training.user.service.model.mapper.UserMapper;
+import org.training.user.service.repository.UserRepository;
+import org.training.user.service.service.KeycloakService;
+import org.training.user.service.service.UserService;
+import org.training.user.service.utils.FieldChecker;
+
+import javax.transaction.Transactional;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class UserServiceImpl implements UserService {
+
+    private final UserRepository userRepository;
+    private final KeycloakService keycloakService;
+    private final AccountService accountService;
+
+    private UserMapper userMapper = new UserMapper();
+
+    @Value("${spring.application.success}")
+    private String responseCodeSuccess;
+
+    @Value("${spring.application.not_found}")
+    private String responseCodeNotFound;
+
+    /**
+     * Creates a new user.
+     *
+     * @param userDto The user data transfer object containing user information.
+     * @return A response indicating the result of the user creation.
+     * @throws ResourceConflictException If the emailId is already registered as a user.
+     * @throws RuntimeException If the user with identification number is not found.
+     */
+    @Override
+    public Response createUser(CreateUser userDto) {
+
+        List<UserRepresentation> userRepresentations = keycloakService.readUserByEmail(userDto.getEmailId());
+        if(userRepresentations.size() > 0) {
+            log.error("This emailId is already registered as a user");
+            throw new ResourceConflictException("This emailId is already registered as a user");
+        }
+
+        UserRepresentation userRepresentation = new UserRepresentation();
+        userRepresentation.setUsername(userDto.getEmailId());
+        userRepresentation.setFirstName(userDto.getFirstName());
+        userRepresentation.setLastName(userDto.getLastName());
+        userRepresentation.setEmailVerified(false);
+        userRepresentation.setEnabled(false);
+        userRepresentation.setEmail(userDto.getEmailId());
+
+        CredentialRepresentation credentialRepresentation = new CredentialRepresentation();
+        credentialRepresentation.setValue(userDto.getPassword());
+        credentialRepresentation.setTemporary(false);
+        userRepresentation.setCredentials(Collections.singletonList(credentialRepresentation));
+
+        Integer userCreationResponse = keycloakService.createUser(userRepresentation);
+
+        if (userCreationResponse.equals(201)) {
+
+            List<UserRepresentation> representations = keycloakService.readUserByEmail(userDto.getEmailId());
+            UserProfile userProfile = UserProfile.builder()
+                    .firstName(userDto.getFirstName())
+                    .lastName(userDto.getLastName()).build();
+
+            User user = User.builder()
+                    .emailId(userDto.getEmailId())
+                    .contactNo(userDto.getContactNumber())
+                    .status(Status.PENDING).userProfile(userProfile)
+                    .authId(representations.get(0).getId())
+                    .identificationNumber(UUID.randomUUID().toString()).build();
+
+            userRepository.save(user);
+            return Response.builder()
+                    .responseMessage("User created successfully")
+                    .responseCode(responseCodeSuccess).build();
+        }
+        throw new RuntimeException("User with identification number not found");
+    }
+
+    /**
+     * Retrieves all users and their corresponding details.
+     *
+     * @return a list of UserDto objects containing the user information
+     */
+    @Override
+    public List<UserDto> readAllUsers() {
+
+        List<User> users = userRepository.findAll();
+
+        Map<String, UserRepresentation> userRepresentationMap = keycloakService.readUsers(users.stream().map(user -> user.getAuthId()).collect(Collectors.toList()))
+                .stream().collect(Collectors.toMap(UserRepresentation::getId, Function.identity()));
+
+        return users.stream().map(user -> {
+            UserDto userDto = userMapper.convertToDto(user);
+            UserRepresentation userRepresentation = userRepresentationMap.get(user.getAuthId());
+            userDto.setUserId(user.getUserId());
+            userDto.setEmailId(userRepresentation.getEmail());
+            userDto.setIdentificationNumber(user.getIdentificationNumber());
+            return userDto;
+        }).collect(Collectors.toList());
+    }
+
+    /**
+     * Reads a user from the database using the provided authId.
+     *
+     * @param authId the authentication id of the user
+     * @return the UserDto object representing the user
+     * @throws ResourceNotFound if the user is not found on the server
+     */
+    @Override
+    public UserDto readUser(String authId) {
+
+        User user = userRepository.findUserByAuthId(authId).
+                orElseThrow(() -> new ResourceNotFound("User not found on the server"));
+
+        UserRepresentation userRepresentation = keycloakService.readUser(authId);
+        UserDto userDto = userMapper.convertToDto(user);
+        userDto.setEmailId(userRepresentation.getEmail());
+        return userDto;
+    }
+
+    /**
+     * Updates the status of a user.
+     *
+     * @param id The ID of the user.
+     * @param userUpdate The updated user status.
+     * @return The response indicating the success of the update.
+     * @throws ResourceNotFound If the user is not found.
+     * @throws EmptyFields If the user has empty fields.
+     */
+    @Override
+    public Response updateUserStatus(Long id, UserUpdateStatus userUpdate) {
+
+        User user = userRepository.findById(id).orElseThrow(
+                () -> new ResourceNotFound("User not found on the server"));
+
+        if (FieldChecker.hasEmptyFields(user)) {
+            log.error("User is not updated completely");
+            throw new EmptyFields("please updated the user", responseCodeNotFound);
+        }
+
+        if(userUpdate.getStatus().equals(Status.APPROVED)){
+            UserRepresentation userRepresentation = keycloakService.readUser(user.getAuthId());
+            userRepresentation.setEnabled(true);
+            userRepresentation.setEmailVerified(true);
+            keycloakService.updateUser(userRepresentation);
+        }
+
+
+        user.setStatus(userUpdate.getStatus());
+        userRepository.save(user);
+
+        return Response.builder()
+                .responseMessage("User updated successfully")
+                .responseCode(responseCodeSuccess).build();
+    }
+
+    /**
+     * Retrieves a user by their ID.
+     *
+     * @param userId the ID of the user to retrieve
+     * @return the UserDto object representing the user
+     * @throws ResourceNotFound if the user is not found
+     */
+    @Override
+    public UserDto readUserById(Long userId) {
+
+        return userRepository.findById(userId)
+                .map(user -> userMapper.convertToDto(user))
+                .orElseThrow(() -> new ResourceNotFound("User not found on the server"));
+    }
+
+    /**
+     * Updates a user with the given ID.
+     *
+     * @param id The ID of the user to update.
+     * @param userUpdate The updated information for the user.
+     * @return The response indicating the success or failure of the update operation.
+     * @throws ResourceNotFound if the user with the given ID is not found.
+     */
+    @Override
+    public Response updateUser(Long id, UserUpdate userUpdate) {
+
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFound("User not found on the server"));
+
+        user.setContactNo(userUpdate.getContactNo());
+        BeanUtils.copyProperties(userUpdate, user.getUserProfile());
+        userRepository.save(user);
+
+        return Response.builder()
+                .responseCode(responseCodeSuccess)
+                .responseMessage("user updated successfully").build();
+    }
+
+    /**
+     * Retrieves a UserDto by the given accountId.
+     *
+     * @param accountId The account ID of the user.
+     * @return The UserDto object corresponding to the given accountId.
+     * @throws ResourceNotFound If the account or user is not found on the server.
+     */
+    @Override
+    public UserDto readUserByAccountId(String accountId) {
+
+        ResponseEntity<Account> response = accountService.readByAccountNumber(accountId);
+        if(Objects.isNull(response.getBody())){
+            throw new ResourceNotFound("account not found on the server");
+        }
+        Long userId = response.getBody().getUserId();
+        return userRepository.findById(userId)
+                .map(user -> userMapper.convertToDto(user))
+                .orElseThrow(() -> new ResourceNotFound("User not found on the server"));
+    }
+}
+
+
+--- FILE: User-Service\src\main\resources\application.yml ---
+server:
+  port: 8082
+
+spring:
+  application:
+    name: user-service
+    bad_request: 400
+    conflict: 409
+    success: 200
+    not_found: 404
+
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DB_NAME:user_service}
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:Netcracker@123}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://service-registry:8761/eureka/
+
+
+app:
+  config:
+    keycloak:
+      server-url: ${APP_CONFIG_KEYCLOAK_SERVER_URL:http://localhost:8571}
+      realm: banking-service
+      client-id: banking-service-api-client
+      client-secret: ooZV25AjCo15w8A7Qum50VjrTbkie0EE
+
+# ============================================================
+# Performance Engineering Monitoring — Actuator + Prometheus
+# Spring Boot 2.7.x syntax (management.metrics.export.prometheus)
+# ============================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+  endpoint:
+    health:
+      show-details: always
+
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+    tags:
+      application: ${spring.application.name}
+
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+
+      percentiles:
+        http.server.requests: 0.50,0.95,0.99
+
+      slo:
+        http.server.requests: 100ms,250ms,500ms,1s,2s,5s
