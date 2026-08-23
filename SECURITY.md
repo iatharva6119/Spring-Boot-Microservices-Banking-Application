@@ -14,14 +14,19 @@ This document provides an exhaustive, senior-engineer-level breakdown of the **S
    - [3.3 Downstream Microservice Isolation & Trust Model](#33-downstream-microservice-isolation--trust-model)
 4. [User Lifecycle & Authentication State Machine](#4-user-lifecycle--authentication-state-machine)
 5. [End-to-End Workflow & Sequence Diagrams](#5-end-to-end-workflow--sequence-diagrams)
-6. [Complete Postman & cURL API Reference](#6-complete-postman--curl-api-reference)
-   - [6.1 Token Generation (Keycloak Direct Grant)](#61-token-generation-keycloak-direct-grant)
-   - [6.2 User Service Endpoints](#62-user-service-endpoints)
-   - [6.3 Account Service Endpoints](#63-account-service-endpoints)
-   - [6.4 Transaction Service Endpoints](#64-transaction-service-endpoints)
-   - [6.5 Fund Transfer Service Endpoints](#65-fund-transfer-service-endpoints)
-   - [6.6 Sequence Generator Endpoints](#66-sequence-generator-endpoints)
-7. [Security Assessment, Audit Findings & Hardening Recommendations](#7-security-assessment-audit-findings--hardening-recommendations)
+6. [How to Check & Verify Authentication](#6-how-to-check--verify-authentication)
+   - [6.1 Authentication Test Matrix & Scenarios](#61-authentication-test-matrix--scenarios)
+   - [6.2 Step-by-Step Guide: How to Verify Authentication](#62-step-by-step-guide-how-to-verify-authentication)
+7. [Complete Postman & cURL API Reference](#7-complete-postman--curl-api-reference)
+   - [7.1 Postman Environment Setup](#71-postman-environment-setup)
+   - [7.2 Automated Token Injection in Postman](#72-automated-token-injection-in-postman)
+   - [7.3 Keycloak Authentication Requests](#73-keycloak-authentication-requests)
+   - [7.4 User Service Endpoints](#74-user-service-endpoints)
+   - [7.5 Account Service Endpoints](#75-account-service-endpoints)
+   - [7.6 Transaction Service Endpoints](#76-transaction-service-endpoints)
+   - [7.7 Fund Transfer Service Endpoints](#77-fund-transfer-service-endpoints)
+   - [7.8 Sequence Generator Endpoints](#78-sequence-generator-endpoints)
+8. [Security Assessment, Audit Findings & Hardening Recommendations](#8-security-assessment-audit-findings--hardening-recommendations)
 
 ---
 
@@ -298,31 +303,170 @@ sequenceDiagram
 
 ---
 
-## 6. Complete Postman & cURL API Reference
+## 6. How to Check & Verify Authentication
 
-All requests can be sent through the **API Gateway** (`http://localhost:8080`) or directly to **Keycloak** (`http://localhost:8571`).
+Testing and verifying authentication ensures that only valid, active users with cryptographically signed tokens can access protected banking microservices.
+
+### 6.1 Authentication Test Matrix & Scenarios
+
+| Test Case | Request / Scenario | Credentials / Token | Expected Result | Why It Happens |
+| :--- | :--- | :--- | :--- | :--- |
+| **TC-01: Valid Login** | `POST /protocol/openid-connect/token` | Approved user + valid password | `200 OK` + JWT access token | Credentials match and user `enabled: true` in Keycloak |
+| **TC-02: Invalid Password** | `POST /protocol/openid-connect/token` | Valid username + wrong password | `400 Bad Request` (`invalid_grant`) | Keycloak password verification fails |
+| **TC-03: Pending / Disabled User** | `POST /protocol/openid-connect/token` | Newly registered user (Pending) | `400 Bad Request` (`Account is disabled`) | User registered with `enabled: false` until admin approval |
+| **TC-04: Authenticated API Call** | `GET /accounts?accountNumber=...` | Valid `Bearer <JWT>` | `200 OK` with account data | Gateway validates JWT against Keycloak JWKS certs |
+| **TC-05: Missing Token (Unauthenticated)** | `GET /accounts?accountNumber=...` | No `Authorization` header | `401 Unauthorized` | Gateway rejects unauthenticated traffic on secured routes |
+| **TC-06: Expired / Forged Token** | `GET /accounts?accountNumber=...` | Expired or tampered JWT string | `401 Unauthorized` (`Bearer error="invalid_token"`) | Cryptographic signature or expiration (`exp`) check fails |
+| **TC-07: Public Endpoint** | `POST /api/users/register` | No token | `200 OK` / `201 Created` | Explicitly whitelisted via `.pathMatchers("/api/users/register").permitAll()` |
 
 ---
 
-### 6.1 Token Generation (Keycloak Direct Grant)
+### 6.2 Step-by-Step Guide: How to Verify Authentication
 
-Used to authenticate a user and retrieve a JWT Access Token.
+#### Step 1: Test Login with a Newly Registered (Unapproved) User
+1. Register a new user via `POST http://localhost:8080/api/users/register`.
+2. Attempt to fetch a token from Keycloak (`POST http://localhost:8571/realms/banking-service/protocol/openid-connect/token`) using the new user's credentials.
+3. **Verification**: Keycloak must reject the request with HTTP `400 Bad Request`:
+   ```json
+   {
+     "error": "invalid_grant",
+     "error_description": "Account is disabled"
+   }
+   ```
 
-* **Method**: `POST`
-* **URL**: `http://localhost:8571/realms/banking-service/protocol/openid-connect/token`
-* **Content-Type**: `application/x-www-form-urlencoded`
+#### Step 2: Approve the User and Verify Token Issuance
+1. As an admin, approve the user: `PATCH http://localhost:8080/api/users/{userId}` with `{ "status": "APPROVED" }`.
+2. `User-Service` activates the account in Keycloak (`enabled: true`).
+3. Re-run the token request in Postman.
+4. **Verification**: Keycloak returns HTTP `200 OK` with a JSON payload containing `access_token` and `refresh_token`.
 
-#### Request Parameters (Body):
-| Parameter | Value | Type | Description |
+#### Step 3: Inspect and Decode the JWT Token
+Copy the `access_token` value and paste it into [jwt.io](https://jwt.io) or decode it using base64 CLI tools.
+
+* **JWT Header Inspection**:
+  ```json
+  {
+    "alg": "RS256",
+    "typ": "JWT",
+    "kid": "K_L9mP2q8v..."
+  }
+  ```
+  *(Verify `alg` is `RS256` and `kid` matches one of Keycloak's keys at `http://localhost:8571/realms/banking-service/protocol/openid-connect/certs`)*
+
+* **JWT Payload Claims Inspection**:
+  ```json
+  {
+    "exp": 1724401500,
+    "iat": 1724401200,
+    "iss": "http://localhost:8571/realms/banking-service",
+    "sub": "3f83737b-ec86-4f47-a8fe-3bcbe998797f",
+    "preferred_username": "adamsanadi1234@gmail.com",
+    "email": "adamsanadi1234@gmail.com",
+    "azp": "banking-service-client"
+  }
+  ```
+  *(Verify `iss` matches your realm URL and `exp` is in the future)*
+
+#### Step 4: Verify Gateway Signature Validation
+1. Send a request to any protected route (e.g. `GET http://localhost:8080/accounts/1`) with the header:
+   ```http
+   Authorization: Bearer <YOUR_ACCESS_TOKEN>
+   ```
+2. **Verification**: The API Gateway verifies the token signature against Keycloak JWKS and routes the request, returning `200 OK`.
+3. Modify even a single character in the token payload or signature, and re-send.
+4. **Verification**: The API Gateway immediately blocks the request with `401 Unauthorized`.
+
+---
+
+## 7. Complete Postman & cURL API Reference
+
+### 7.1 Postman Environment Setup
+
+Create a new Environment in Postman named **`Banking Microservices (Local)`** with the following key-value pairs:
+
+| Variable Name | Initial Value | Current Value | Description |
 | :--- | :--- | :--- | :--- |
-| `grant_type` | `password` | String | Direct Access Grant |
-| `client_id` | `banking-service-client` | String | Configured OAuth2 client |
-| `client_secret` | `7ZXjz5ZBz9EzoBBr1reNOVfmd2XqQSwJ` | String | Client secret key |
-| `username` | `super-user` *(or registered email)* | String | User's login username or email |
-| `password` | `atharva61` *(or user password)* | String | User's password |
-| `scope` | `openid offline_access` | String | Requested OAuth2 scopes |
+| `base_url` | `http://localhost:8080` | `http://localhost:8080` | API Gateway base URL |
+| `keycloak_host` | `http://localhost:8571` | `http://localhost:8571` | Keycloak IAM server URL |
+| `keycloak_realm` | `banking-service` | `banking-service` | Keycloak realm name |
+| `keycloak_client_id` | `banking-service-client` | `banking-service-client` | Postman / Gateway Client ID |
+| `keycloak_client_secret` | `7ZXjz5ZBz9EzoBBr1reNOVfmd2XqQSwJ` | `7ZXjz5ZBz9EzoBBr1reNOVfmd2XqQSwJ` | Client secret key |
+| `keycloak_username` | `super-user` | `super-user` | Username / email for login |
+| `keycloak_password` | `atharva61` | `atharva61` | Password for login |
+| `token` | *(leave empty)* | *(auto-populated)* | JWT Bearer access token |
 
-#### cURL Command:
+---
+
+### 7.2 Automated Token Injection in Postman
+
+To avoid manually copying and pasting tokens across requests, add this script under the **Tests** tab of your **Get Token** request in Postman:
+
+```javascript
+// Postman Tests Script: Auto-save Token
+if (pm.response.code === 200) {
+    var jsonData = pm.response.json();
+    pm.environment.set("token", jsonData.access_token);
+    console.log("Access token successfully saved to environment variable 'token'");
+} else {
+    console.error("Failed to acquire token: " + pm.response.text());
+}
+```
+
+Now, in all other requests, configure **Authorization**:
+* **Type**: `Bearer Token`
+* **Token**: `{{token}}`
+
+---
+
+### 7.3 Keycloak Authentication Requests
+
+#### 1. Obtain JWT Access Token (Direct Access Grant)
+* **Method**: `POST`
+* **URL**: `{{keycloak_host}}/realms/{{keycloak_realm}}/protocol/openid-connect/token`
+* **Body Type**: `x-www-form-urlencoded`
+
+| Key | Value | Description |
+| :--- | :--- | :--- |
+| `grant_type` | `password` | Direct password grant flow |
+| `client_id` | `{{keycloak_client_id}}` | OAuth2 Client ID |
+| `client_secret` | `{{keycloak_client_secret}}` | OAuth2 Client Secret |
+| `username` | `{{keycloak_username}}` | User login username/email |
+| `password` | `{{keycloak_password}}` | User login password |
+| `scope` | `openid offline_access` | Scopes requested |
+
+**Postman Request JSON:**
+```json
+{
+  "name": "Get JWT Access Token",
+  "request": {
+    "method": "POST",
+    "header": [
+      {
+        "key": "Content-Type",
+        "value": "application/x-www-form-urlencoded"
+      }
+    ],
+    "body": {
+      "mode": "urlencoded",
+      "urlencoded": [
+        { "key": "grant_type", "value": "password", "type": "text" },
+        { "key": "client_id", "value": "{{keycloak_client_id}}", "type": "text" },
+        { "key": "client_secret", "value": "{{keycloak_client_secret}}", "type": "text" },
+        { "key": "username", "value": "{{keycloak_username}}", "type": "text" },
+        { "key": "password", "value": "{{keycloak_password}}", "type": "text" },
+        { "key": "scope", "value": "openid offline_access", "type": "text" }
+      ]
+    },
+    "url": {
+      "raw": "{{keycloak_host}}/realms/{{keycloak_realm}}/protocol/openid-connect/token",
+      "host": ["{{keycloak_host}}"],
+      "path": ["realms", "{{keycloak_realm}}", "protocol", "openid-connect", "token"]
+    }
+  }
+}
+```
+
+**cURL:**
 ```bash
 curl -X POST http://localhost:8571/realms/banking-service/protocol/openid-connect/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
@@ -334,7 +478,7 @@ curl -X POST http://localhost:8571/realms/banking-service/protocol/openid-connec
   -d "scope=openid offline_access"
 ```
 
-#### Sample Response:
+**Expected Response (`200 OK`):**
 ```json
 {
   "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICI...",
@@ -343,20 +487,63 @@ curl -X POST http://localhost:8571/realms/banking-service/protocol/openid-connec
   "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICI...",
   "token_type": "Bearer",
   "not-before-policy": 0,
-  "session_state": "4020c029-...",
+  "session_state": "4020c029-4567-4b12-9c11-7890abcdef12",
   "scope": "openid profile email offline_access"
 }
 ```
 
 ---
 
-### 6.2 User Service Endpoints
+### 7.4 User Service Endpoints
 
-#### 1. Register User (Public)
+#### 1. Register New User (Public Endpoint)
 * **Method**: `POST`
-* **URL**: `http://localhost:8080/api/users/register`
+* **URL**: `{{base_url}}/api/users/register`
 * **Headers**: `Content-Type: application/json`
+* **Auth**: None (Public)
 
+**Body (Raw JSON):**
+```json
+{
+  "firstName": "Adam",
+  "lastName": "Sanadi",
+  "emailId": "adamsanadi1234@gmail.com",
+  "contactNumber": "8547159267",
+  "password": "Adam@1234"
+}
+```
+
+**Postman Request JSON:**
+```json
+{
+  "name": "Register User",
+  "request": {
+    "method": "POST",
+    "header": [
+      {
+        "key": "Content-Type",
+        "value": "application/json"
+      }
+    ],
+    "body": {
+      "mode": "raw",
+      "raw": "{\n    \"firstName\": \"Adam\",\n    \"lastName\": \"Sanadi\",\n    \"emailId\": \"adamsanadi1234@gmail.com\",\n    \"contactNumber\": \"8547159267\",\n    \"password\": \"Adam@1234\"\n}",
+      "options": {
+        "raw": {
+          "language": "json"
+        }
+      }
+    },
+    "url": {
+      "raw": "{{base_url}}/api/users/register",
+      "host": ["{{base_url}}"],
+      "path": ["api", "users", "register"]
+    }
+  }
+}
+```
+
+**cURL:**
 ```bash
 curl -X POST http://localhost:8080/api/users/register \
   -H "Content-Type: application/json" \
@@ -368,7 +555,8 @@ curl -X POST http://localhost:8080/api/users/register \
     "password": "Adam@1234"
   }'
 ```
-**Sample Response (`200 OK`):**
+
+**Expected Response (`200 OK`):**
 ```json
 {
   "responseCode": "200",
@@ -376,11 +564,56 @@ curl -X POST http://localhost:8080/api/users/register \
 }
 ```
 
+---
+
 #### 2. Update User Status (Admin Approval)
 * **Method**: `PATCH`
-* **URL**: `http://localhost:8080/api/users/1`
-* **Headers**: `Content-Type: application/json`, `Authorization: Bearer <JWT>`
+* **URL**: `{{base_url}}/api/users/1`
+* **Headers**: `Content-Type: application/json`, `Authorization: Bearer {{token}}`
+* **Auth**: Bearer Token `{{token}}`
 
+**Body (Raw JSON):**
+```json
+{
+  "status": "APPROVED"
+}
+```
+
+**Postman Request JSON:**
+```json
+{
+  "name": "Update User Status",
+  "request": {
+    "auth": {
+      "type": "bearer",
+      "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+    },
+    "method": "PATCH",
+    "header": [
+      {
+        "key": "Content-Type",
+        "value": "application/json"
+      }
+    ],
+    "body": {
+      "mode": "raw",
+      "raw": "{\n    \"status\": \"APPROVED\"\n}",
+      "options": {
+        "raw": {
+          "language": "json"
+        }
+      }
+    },
+    "url": {
+      "raw": "{{base_url}}/api/users/1",
+      "host": ["{{base_url}}"],
+      "path": ["api", "users", "1"]
+    }
+  }
+}
+```
+
+**cURL:**
 ```bash
 curl -X PATCH http://localhost:8080/api/users/1 \
   -H "Content-Type: application/json" \
@@ -389,7 +622,8 @@ curl -X PATCH http://localhost:8080/api/users/1 \
     "status": "APPROVED"
   }'
 ```
-**Sample Response (`200 OK`):**
+
+**Expected Response (`200 OK`):**
 ```json
 {
   "responseCode": "200",
@@ -397,11 +631,63 @@ curl -X PATCH http://localhost:8080/api/users/1 \
 }
 ```
 
+---
+
 #### 3. Update User Profile Details
 * **Method**: `PUT`
-* **URL**: `http://localhost:8080/api/users/1`
-* **Headers**: `Content-Type: application/json`, `Authorization: Bearer <JWT>`
+* **URL**: `{{base_url}}/api/users/1`
+* **Headers**: `Content-Type: application/json`, `Authorization: Bearer {{token}}`
+* **Auth**: Bearer Token `{{token}}`
 
+**Body (Raw JSON):**
+```json
+{
+  "firstName": "Kishan",
+  "lastName": "Kulkarni",
+  "contactNo": "9562148579",
+  "address": "Behind Prasad Lodge, Extension Masari",
+  "gender": "Male",
+  "occupation": "Student",
+  "martialStatus": "Single",
+  "nationality": "Indian"
+}
+```
+
+**Postman Request JSON:**
+```json
+{
+  "name": "Update User Details",
+  "request": {
+    "auth": {
+      "type": "bearer",
+      "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+    },
+    "method": "PUT",
+    "header": [
+      {
+        "key": "Content-Type",
+        "value": "application/json"
+      }
+    ],
+    "body": {
+      "mode": "raw",
+      "raw": "{\n    \"firstName\": \"Kishan\",\n    \"lastName\": \"Kulkarni\",\n    \"contactNo\": \"9562148579\",\n    \"address\": \"Behind Prasad Lodge, Extension Masari\",\n    \"gender\": \"Male\",\n    \"occupation\": \"Student\",\n    \"martialStatus\": \"Single\",\n    \"nationality\": \"Indian\"\n}",
+      "options": {
+        "raw": {
+          "language": "json"
+        }
+      }
+    },
+    "url": {
+      "raw": "{{base_url}}/api/users/1",
+      "host": ["{{base_url}}"],
+      "path": ["api", "users", "1"]
+    }
+  }
+}
+```
+
+**cURL:**
 ```bash
 curl -X PUT http://localhost:8080/api/users/1 \
   -H "Content-Type: application/json" \
@@ -418,41 +704,158 @@ curl -X PUT http://localhost:8080/api/users/1 \
   }'
 ```
 
+**Expected Response (`200 OK`):**
+```json
+{
+  "responseCode": "200",
+  "responseMessage": "User details updated successfully"
+}
+```
+
+---
+
 #### 4. Read User by ID
 * **Method**: `GET`
-* **URL**: `http://localhost:8080/api/users/1`
-* **Headers**: `Authorization: Bearer <JWT>`
+* **URL**: `{{base_url}}/api/users/1`
+* **Headers**: `Authorization: Bearer {{token}}`
+* **Auth**: Bearer Token `{{token}}`
 
+**Postman Request JSON:**
+```json
+{
+  "name": "Read User by ID",
+  "request": {
+    "auth": {
+      "type": "bearer",
+      "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+    },
+    "method": "GET",
+    "header": [],
+    "url": {
+      "raw": "{{base_url}}/api/users/1",
+      "host": ["{{base_url}}"],
+      "path": ["api", "users", "1"]
+    }
+  }
+}
+```
+
+**cURL:**
 ```bash
 curl -X GET http://localhost:8080/api/users/1 \
   -H "Authorization: Bearer <ACCESS_TOKEN>"
 ```
 
+**Expected Response (`200 OK`):**
+```json
+{
+  "userId": 1,
+  "firstName": "Adam",
+  "lastName": "Sanadi",
+  "emailId": "adamsanadi1234@gmail.com",
+  "contactNumber": "8547159267",
+  "status": "APPROVED",
+  "authId": "3f83737b-ec86-4f47-a8fe-3bcbe998797f"
+}
+```
+
+---
+
 #### 5. Read All Users
 * **Method**: `GET`
-* **URL**: `http://localhost:8080/api/users`
-* **Headers**: `Authorization: Bearer <JWT>`
+* **URL**: `{{base_url}}/api/users`
+* **Headers**: `Authorization: Bearer {{token}}`
+* **Auth**: Bearer Token `{{token}}`
 
+**Postman Request JSON:**
+```json
+{
+  "name": "Read All Users",
+  "request": {
+    "auth": {
+      "type": "bearer",
+      "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+    },
+    "method": "GET",
+    "header": [],
+    "url": {
+      "raw": "{{base_url}}/api/users",
+      "host": ["{{base_url}}"],
+      "path": ["api", "users"]
+    }
+  }
+}
+```
+
+**cURL:**
 ```bash
 curl -X GET http://localhost:8080/api/users \
   -H "Authorization: Bearer <ACCESS_TOKEN>"
 ```
 
+---
+
 #### 6. Read User by Keycloak Auth ID
 * **Method**: `GET`
-* **URL**: `http://localhost:8080/api/users/auth/3f83737b-ec86-4f47-a8fe-3bcbe998797f`
-* **Headers**: `Authorization: Bearer <JWT>`
+* **URL**: `{{base_url}}/api/users/auth/3f83737b-ec86-4f47-a8fe-3bcbe998797f`
+* **Headers**: `Authorization: Bearer {{token}}`
+* **Auth**: Bearer Token `{{token}}`
 
+**Postman Request JSON:**
+```json
+{
+  "name": "Read User by Auth ID",
+  "request": {
+    "auth": {
+      "type": "bearer",
+      "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+    },
+    "method": "GET",
+    "header": [],
+    "url": {
+      "raw": "{{base_url}}/api/users/auth/3f83737b-ec86-4f47-a8fe-3bcbe998797f",
+      "host": ["{{base_url}}"],
+      "path": ["api", "users", "auth", "3f83737b-ec86-4f47-a8fe-3bcbe998797f"]
+    }
+  }
+}
+```
+
+**cURL:**
 ```bash
 curl -X GET http://localhost:8080/api/users/auth/3f83737b-ec86-4f47-a8fe-3bcbe998797f \
   -H "Authorization: Bearer <ACCESS_TOKEN>"
 ```
 
-#### 7. Read User by Account ID
-* **Method**: `GET`
-* **URL**: `http://localhost:8080/api/users/accounts/0600140000001`
-* **Headers**: `Authorization: Bearer <JWT>`
+---
 
+#### 7. Read User by Account Number
+* **Method**: `GET`
+* **URL**: `{{base_url}}/api/users/accounts/0600140000001`
+* **Headers**: `Authorization: Bearer {{token}}`
+* **Auth**: Bearer Token `{{token}}`
+
+**Postman Request JSON:**
+```json
+{
+  "name": "Read User by Account Number",
+  "request": {
+    "auth": {
+      "type": "bearer",
+      "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+    },
+    "method": "GET",
+    "header": [],
+    "url": {
+      "raw": "{{base_url}}/api/users/accounts/0600140000001",
+      "host": ["{{base_url}}"],
+      "path": ["api", "users", "accounts", "0600140000001"]
+    }
+  }
+}
+```
+
+**cURL:**
 ```bash
 curl -X GET http://localhost:8080/api/users/accounts/0600140000001 \
   -H "Authorization: Bearer <ACCESS_TOKEN>"
@@ -460,13 +863,57 @@ curl -X GET http://localhost:8080/api/users/accounts/0600140000001 \
 
 ---
 
-### 6.3 Account Service Endpoints
+### 7.5 Account Service Endpoints
 
 #### 1. Create Bank Account
 * **Method**: `POST`
-* **URL**: `http://localhost:8080/accounts`
-* **Headers**: `Content-Type: application/json`, `Authorization: Bearer <JWT>`
+* **URL**: `{{base_url}}/accounts`
+* **Headers**: `Content-Type: application/json`, `Authorization: Bearer {{token}}`
+* **Auth**: Bearer Token `{{token}}`
 
+**Body (Raw JSON):**
+```json
+{
+  "accountType": "SAVINGS_ACCOUNT",
+  "userId": "1"
+}
+```
+
+**Postman Request JSON:**
+```json
+{
+  "name": "Create Bank Account",
+  "request": {
+    "auth": {
+      "type": "bearer",
+      "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+    },
+    "method": "POST",
+    "header": [
+      {
+        "key": "Content-Type",
+        "value": "application/json"
+      }
+    ],
+    "body": {
+      "mode": "raw",
+      "raw": "{\n    \"accountType\": \"SAVINGS_ACCOUNT\",\n    \"userId\": \"1\"\n}",
+      "options": {
+        "raw": {
+          "language": "json"
+        }
+      }
+    },
+    "url": {
+      "raw": "{{base_url}}/accounts",
+      "host": ["{{base_url}}"],
+      "path": ["accounts"]
+    }
+  }
+}
+```
+
+**cURL:**
 ```bash
 curl -X POST http://localhost:8080/accounts \
   -H "Content-Type: application/json" \
@@ -476,7 +923,8 @@ curl -X POST http://localhost:8080/accounts \
     "userId": "1"
   }'
 ```
-**Sample Response (`201 Created`):**
+
+**Expected Response (`201 Created`):**
 ```json
 {
   "responseCode": "201",
@@ -484,21 +932,115 @@ curl -X POST http://localhost:8080/accounts \
 }
 ```
 
+---
+
 #### 2. Read Account by Account Number
 * **Method**: `GET`
-* **URL**: `http://localhost:8080/accounts?accountNumber=0600140000001`
-* **Headers**: `Authorization: Bearer <JWT>`
+* **URL**: `{{base_url}}/accounts?accountNumber=0600140000001`
+* **Params**: `accountNumber` = `0600140000001`
+* **Headers**: `Authorization: Bearer {{token}}`
+* **Auth**: Bearer Token `{{token}}`
 
+**Postman Request JSON:**
+```json
+{
+  "name": "Read Account by Account Number",
+  "request": {
+    "auth": {
+      "type": "bearer",
+      "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+    },
+    "method": "GET",
+    "header": [],
+    "url": {
+      "raw": "{{base_url}}/accounts?accountNumber=0600140000001",
+      "host": ["{{base_url}}"],
+      "path": ["accounts"],
+      "query": [
+        {
+          "key": "accountNumber",
+          "value": "0600140000001"
+        }
+      ]
+    }
+  }
+}
+```
+
+**cURL:**
 ```bash
 curl -X GET "http://localhost:8080/accounts?accountNumber=0600140000001" \
   -H "Authorization: Bearer <ACCESS_TOKEN>"
 ```
 
-#### 3. Update Account Status
-* **Method**: `PATCH`
-* **URL**: `http://localhost:8080/accounts?accountNumber=0600140000001`
-* **Headers**: `Content-Type: application/json`, `Authorization: Bearer <JWT>`
+**Expected Response (`200 OK`):**
+```json
+{
+  "accountNumber": "0600140000001",
+  "accountType": "SAVINGS_ACCOUNT",
+  "accountStatus": "PENDING",
+  "availableBalance": 0.0,
+  "userId": 1
+}
+```
 
+---
+
+#### 3. Update Account Status (Activate Account)
+* **Method**: `PATCH`
+* **URL**: `{{base_url}}/accounts?accountNumber=0600140000001`
+* **Params**: `accountNumber` = `0600140000001`
+* **Headers**: `Content-Type: application/json`, `Authorization: Bearer {{token}}`
+* **Auth**: Bearer Token `{{token}}`
+
+**Body (Raw JSON):**
+```json
+{
+  "accountStatus": "ACTIVE"
+}
+```
+
+**Postman Request JSON:**
+```json
+{
+  "name": "Update Account Status",
+  "request": {
+    "auth": {
+      "type": "bearer",
+      "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+    },
+    "method": "PATCH",
+    "header": [
+      {
+        "key": "Content-Type",
+        "value": "application/json"
+      }
+    ],
+    "body": {
+      "mode": "raw",
+      "raw": "{\n    \"accountStatus\": \"ACTIVE\"\n}",
+      "options": {
+        "raw": {
+          "language": "json"
+        }
+      }
+    },
+    "url": {
+      "raw": "{{base_url}}/accounts?accountNumber=0600140000001",
+      "host": ["{{base_url}}"],
+      "path": ["accounts"],
+      "query": [
+        {
+          "key": "accountNumber",
+          "value": "0600140000001"
+        }
+      ]
+    }
+  }
+}
+```
+
+**cURL:**
 ```bash
 curl -X PATCH "http://localhost:8080/accounts?accountNumber=0600140000001" \
   -H "Content-Type: application/json" \
@@ -508,21 +1050,76 @@ curl -X PATCH "http://localhost:8080/accounts?accountNumber=0600140000001" \
   }'
 ```
 
+---
+
 #### 4. Read Account by User ID
 * **Method**: `GET`
-* **URL**: `http://localhost:8080/accounts/1`
-* **Headers**: `Authorization: Bearer <JWT>`
+* **URL**: `{{base_url}}/accounts/1`
+* **Headers**: `Authorization: Bearer {{token}}`
+* **Auth**: Bearer Token `{{token}}`
 
+**Postman Request JSON:**
+```json
+{
+  "name": "Read Account by User ID",
+  "request": {
+    "auth": {
+      "type": "bearer",
+      "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+    },
+    "method": "GET",
+    "header": [],
+    "url": {
+      "raw": "{{base_url}}/accounts/1",
+      "host": ["{{base_url}}"],
+      "path": ["accounts", "1"]
+    }
+  }
+}
+```
+
+**cURL:**
 ```bash
 curl -X GET http://localhost:8080/accounts/1 \
   -H "Authorization: Bearer <ACCESS_TOKEN>"
 ```
 
+---
+
 #### 5. Close Account
 * **Method**: `PUT`
-* **URL**: `http://localhost:8080/accounts/closure?accountNumber=0600140000001`
-* **Headers**: `Authorization: Bearer <JWT>`
+* **URL**: `{{base_url}}/accounts/closure?accountNumber=0600140000001`
+* **Params**: `accountNumber` = `0600140000001`
+* **Headers**: `Authorization: Bearer {{token}}`
+* **Auth**: Bearer Token `{{token}}`
 
+**Postman Request JSON:**
+```json
+{
+  "name": "Close Account",
+  "request": {
+    "auth": {
+      "type": "bearer",
+      "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+    },
+    "method": "PUT",
+    "header": [],
+    "url": {
+      "raw": "{{base_url}}/accounts/closure?accountNumber=0600140000001",
+      "host": ["{{base_url}}"],
+      "path": ["accounts", "closure"],
+      "query": [
+        {
+          "key": "accountNumber",
+          "value": "0600140000001"
+        }
+      ]
+    }
+  }
+}
+```
+
+**cURL:**
 ```bash
 curl -X PUT "http://localhost:8080/accounts/closure?accountNumber=0600140000001" \
   -H "Authorization: Bearer <ACCESS_TOKEN>"
@@ -530,13 +1127,59 @@ curl -X PUT "http://localhost:8080/accounts/closure?accountNumber=0600140000001"
 
 ---
 
-### 6.4 Transaction Service Endpoints
+### 7.6 Transaction Service Endpoints
 
 #### 1. Make a Transaction (Deposit / Withdrawal)
 * **Method**: `POST`
-* **URL**: `http://localhost:8080/transactions`
-* **Headers**: `Content-Type: application/json`, `Authorization: Bearer <JWT>`
+* **URL**: `{{base_url}}/transactions`
+* **Headers**: `Content-Type: application/json`, `Authorization: Bearer {{token}}`
+* **Auth**: Bearer Token `{{token}}`
 
+**Body (Raw JSON - Deposit):**
+```json
+{
+  "accountId": "0600140000001",
+  "transactionType": "DEPOSIT",
+  "amount": 1000.00,
+  "description": "Initial account deposit"
+}
+```
+
+**Postman Request JSON:**
+```json
+{
+  "name": "Make Transaction (Deposit)",
+  "request": {
+    "auth": {
+      "type": "bearer",
+      "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+    },
+    "method": "POST",
+    "header": [
+      {
+        "key": "Content-Type",
+        "value": "application/json"
+      }
+    ],
+    "body": {
+      "mode": "raw",
+      "raw": "{\n    \"accountId\": \"0600140000001\",\n    \"transactionType\": \"DEPOSIT\",\n    \"amount\": 1000.00,\n    \"description\": \"Initial account deposit\"\n}",
+      "options": {
+        "raw": {
+          "language": "json"
+        }
+      }
+    },
+    "url": {
+      "raw": "{{base_url}}/transactions",
+      "host": ["{{base_url}}"],
+      "path": ["transactions"]
+    }
+  }
+}
+```
+
+**cURL:**
 ```bash
 curl -X POST http://localhost:8080/transactions \
   -H "Content-Type: application/json" \
@@ -548,7 +1191,8 @@ curl -X POST http://localhost:8080/transactions \
     "description": "Initial account deposit"
   }'
 ```
-**Sample Response (`200 OK`):**
+
+**Expected Response (`200 OK`):**
 ```json
 {
   "responseCode": "200",
@@ -556,21 +1200,76 @@ curl -X POST http://localhost:8080/transactions \
 }
 ```
 
-#### 2. Get Transactions for an Account
-* **Method**: `GET`
-* **URL**: `http://localhost:8080/transactions?accountId=0600140000001`
-* **Headers**: `Authorization: Bearer <JWT>`
+---
 
+#### 2. Get All Transactions for an Account
+* **Method**: `GET`
+* **URL**: `{{base_url}}/transactions?accountId=0600140000001`
+* **Params**: `accountId` = `0600140000001`
+* **Headers**: `Authorization: Bearer {{token}}`
+* **Auth**: Bearer Token `{{token}}`
+
+**Postman Request JSON:**
+```json
+{
+  "name": "Get Transactions for Account",
+  "request": {
+    "auth": {
+      "type": "bearer",
+      "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+    },
+    "method": "GET",
+    "header": [],
+    "url": {
+      "raw": "{{base_url}}/transactions?accountId=0600140000001",
+      "host": ["{{base_url}}"],
+      "path": ["transactions"],
+      "query": [
+        {
+          "key": "accountId",
+          "value": "0600140000001"
+        }
+      ]
+    }
+  }
+}
+```
+
+**cURL:**
 ```bash
 curl -X GET "http://localhost:8080/transactions?accountId=0600140000001" \
   -H "Authorization: Bearer <ACCESS_TOKEN>"
 ```
 
-#### 3. Get Transaction by Reference Number
-* **Method**: `GET`
-* **URL**: `http://localhost:8080/transactions/0671cbe4-fefb-4a60-9e55-93bfb1d5895c`
-* **Headers**: `Authorization: Bearer <JWT>`
+---
 
+#### 3. Get Transaction by Reference ID
+* **Method**: `GET`
+* **URL**: `{{base_url}}/transactions/0671cbe4-fefb-4a60-9e55-93bfb1d5895c`
+* **Headers**: `Authorization: Bearer {{token}}`
+* **Auth**: Bearer Token `{{token}}`
+
+**Postman Request JSON:**
+```json
+{
+  "name": "Get Transaction by Reference ID",
+  "request": {
+    "auth": {
+      "type": "bearer",
+      "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+    },
+    "method": "GET",
+    "header": [],
+    "url": {
+      "raw": "{{base_url}}/transactions/0671cbe4-fefb-4a60-9e55-93bfb1d5895c",
+      "host": ["{{base_url}}"],
+      "path": ["transactions", "0671cbe4-fefb-4a60-9e55-93bfb1d5895c"]
+    }
+  }
+}
+```
+
+**cURL:**
 ```bash
 curl -X GET http://localhost:8080/transactions/0671cbe4-fefb-4a60-9e55-93bfb1d5895c \
   -H "Authorization: Bearer <ACCESS_TOKEN>"
@@ -578,13 +1277,58 @@ curl -X GET http://localhost:8080/transactions/0671cbe4-fefb-4a60-9e55-93bfb1d58
 
 ---
 
-### 6.5 Fund Transfer Service Endpoints
+### 7.7 Fund Transfer Service Endpoints
 
 #### 1. Transfer Funds Between Accounts
 * **Method**: `POST`
-* **URL**: `http://localhost:8080/fund-transfers`
-* **Headers**: `Content-Type: application/json`, `Authorization: Bearer <JWT>`
+* **URL**: `{{base_url}}/fund-transfers`
+* **Headers**: `Content-Type: application/json`, `Authorization: Bearer {{token}}`
+* **Auth**: Bearer Token `{{token}}`
 
+**Body (Raw JSON):**
+```json
+{
+  "fromAccount": "0600140000001",
+  "toAccount": "0600140000002",
+  "amount": 500.00
+}
+```
+
+**Postman Request JSON:**
+```json
+{
+  "name": "Fund Transfer",
+  "request": {
+    "auth": {
+      "type": "bearer",
+      "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+    },
+    "method": "POST",
+    "header": [
+      {
+        "key": "Content-Type",
+        "value": "application/json"
+      }
+    ],
+    "body": {
+      "mode": "raw",
+      "raw": "{\n    \"fromAccount\": \"0600140000001\",\n    \"toAccount\": \"0600140000002\",\n    \"amount\": \"500\"\n}",
+      "options": {
+        "raw": {
+          "language": "json"
+        }
+      }
+    },
+    "url": {
+      "raw": "{{base_url}}/fund-transfers",
+      "host": ["{{base_url}}"],
+      "path": ["fund-transfers"]
+    }
+  }
+}
+```
+
+**cURL:**
 ```bash
 curl -X POST http://localhost:8080/fund-transfers \
   -H "Content-Type: application/json" \
@@ -596,21 +1340,84 @@ curl -X POST http://localhost:8080/fund-transfers \
   }'
 ```
 
+**Expected Response (`200 OK`):**
+```json
+{
+  "responseCode": "200",
+  "responseMessage": "Fund transfer completed successfully with Reference 950e07f5-09ce-4fee-be66-3377233458ad"
+}
+```
+
+---
+
 #### 2. Get Transfer Details by Reference ID
 * **Method**: `GET`
-* **URL**: `http://localhost:8080/fund-transfers/950e07f5-09ce-4fee-be66-3377233458ad`
-* **Headers**: `Authorization: Bearer <JWT>`
+* **URL**: `{{base_url}}/fund-transfers/950e07f5-09ce-4fee-be66-3377233458ad`
+* **Headers**: `Authorization: Bearer {{token}}`
+* **Auth**: Bearer Token `{{token}}`
 
+**Postman Request JSON:**
+```json
+{
+  "name": "Get Transfer Details by Reference ID",
+  "request": {
+    "auth": {
+      "type": "bearer",
+      "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+    },
+    "method": "GET",
+    "header": [],
+    "url": {
+      "raw": "{{base_url}}/fund-transfers/950e07f5-09ce-4fee-be66-3377233458ad",
+      "host": ["{{base_url}}"],
+      "path": ["fund-transfers", "950e07f5-09ce-4fee-be66-3377233458ad"]
+    }
+  }
+}
+```
+
+**cURL:**
 ```bash
 curl -X GET http://localhost:8080/fund-transfers/950e07f5-09ce-4fee-be66-3377233458ad \
   -H "Authorization: Bearer <ACCESS_TOKEN>"
 ```
 
+---
+
 #### 3. Get All Fund Transfers from an Account
 * **Method**: `GET`
-* **URL**: `http://localhost:8080/fund-transfers?accountId=0600140000001`
-* **Headers**: `Authorization: Bearer <JWT>`
+* **URL**: `{{base_url}}/fund-transfers?accountId=0600140000001`
+* **Params**: `accountId` = `0600140000001`
+* **Headers**: `Authorization: Bearer {{token}}`
+* **Auth**: Bearer Token `{{token}}`
 
+**Postman Request JSON:**
+```json
+{
+  "name": "Get All Fund Transfers for Account",
+  "request": {
+    "auth": {
+      "type": "bearer",
+      "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+    },
+    "method": "GET",
+    "header": [],
+    "url": {
+      "raw": "{{base_url}}/fund-transfers?accountId=0600140000001",
+      "host": ["{{base_url}}"],
+      "path": ["fund-transfers"],
+      "query": [
+        {
+          "key": "accountId",
+          "value": "0600140000001"
+        }
+      ]
+    }
+  }
+}
+```
+
+**cURL:**
 ```bash
 curl -X GET "http://localhost:8080/fund-transfers?accountId=0600140000001" \
   -H "Authorization: Bearer <ACCESS_TOKEN>"
@@ -618,25 +1425,54 @@ curl -X GET "http://localhost:8080/fund-transfers?accountId=0600140000001" \
 
 ---
 
-### 6.6 Sequence Generator Endpoints
+### 7.8 Sequence Generator Endpoints
 
 #### Generate Account Number Sequence (Internal Service)
 * **Method**: `POST`
-* **URL**: `http://localhost:8080/sequence`
-* **Headers**: `Authorization: Bearer <JWT>`
+* **URL**: `{{base_url}}/sequence`
+* **Headers**: `Authorization: Bearer {{token}}`
+* **Auth**: Bearer Token `{{token}}`
 
+**Postman Request JSON:**
+```json
+{
+  "name": "Generate Account Number Sequence",
+  "request": {
+    "auth": {
+      "type": "bearer",
+      "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+    },
+    "method": "POST",
+    "header": [],
+    "url": {
+      "raw": "{{base_url}}/sequence",
+      "host": ["{{base_url}}"],
+      "path": ["sequence"]
+    }
+  }
+}
+```
+
+**cURL:**
 ```bash
 curl -X POST http://localhost:8080/sequence \
   -H "Authorization: Bearer <ACCESS_TOKEN>"
 ```
 
+**Expected Response (`200 OK`):**
+```json
+{
+  "accountNumber": "0600140000006"
+}
+```
+
 ---
 
-## 7. Security Assessment, Audit Findings & Hardening Recommendations
+## 8. Security Assessment, Audit Findings & Hardening Recommendations
 
 As a Senior Backend Engineer reviewing this system, the following audit items and architectural hardening recommendations must be noted for enterprise production deployments:
 
-### 7.1 Immediate Code Hardening: Gateway Authorization Enforcement
+### 8.1 Immediate Code Hardening: Gateway Authorization Enforcement
 
 > [!WARNING]
 > In [`API-Gateway/src/main/java/org/training/api/gateway/config/SecurityConfig.java`](file:///API-Gateway/src/main/java/org/training/api/gateway/config/SecurityConfig.java#L20-L28), the configuration currently contains `.anyExchange().permitAll()`. While the OAuth2 Resource Server and JWT decoder are fully active, all requests are permitted through for local development convenience.
@@ -669,7 +1505,7 @@ public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
 
 ---
 
-### 7.2 Secrets & Credentials Management
+### 8.2 Secrets & Credentials Management
 
 * **Current State**: Hardcoded client secrets (e.g., `7ZXjz5ZBz9EzoBBr1reNOVfmd2XqQSwJ`, `ooZV25AjCo15w8A7Qum50VjrTbkie0EE`) and database credentials exist in `application.yml` and Postman collections.
 * **Production Recommendation**:
@@ -678,7 +1514,7 @@ public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
 
 ---
 
-### 7.3 Inter-Service Token Propagation (Zero-Trust Model)
+### 8.3 Inter-Service Token Propagation (Zero-Trust Model)
 
 * **Current State**: Once past the API Gateway, inter-service Feign calls do not carry the original caller's JWT token.
 * **Production Recommendation**:
@@ -705,14 +1541,14 @@ public class FeignClientSecurityConfig {
 
 ---
 
-### 7.4 Fine-Grained Role-Based Access Control (RBAC)
+### 8.4 Fine-Grained Role-Based Access Control (RBAC)
 
 * **Recommendation**: Map Keycloak Realm Roles (`ROLE_CUSTOMER`, `ROLE_TELLER`, `ROLE_ADMIN`) into Spring Security authorities.
 * Extract realm roles from JWT claims (`realm_access.roles`) using a custom `ReactiveJwtAuthenticationConverter` in the API Gateway or individual services to restrict endpoints such as Account Closure or User Approvals strictly to administrative users.
 
 ---
 
-### 7.5 Defense in Depth & Network Security
+### 8.5 Defense in Depth & Network Security
 
 1. **TLS / HTTPS Everywhere**: Terminate TLS at the reverse proxy / ingress controller, and enforce mTLS (mutual TLS) between microservices.
 2. **Rate Limiting**: Enable Spring Cloud Gateway's `RequestRateLimiter` filter using Redis (`RedisRateLimiter`) on login and transfer endpoints to protect against brute-force and DDoS attacks.
