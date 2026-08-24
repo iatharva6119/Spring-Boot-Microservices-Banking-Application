@@ -19,6 +19,7 @@ services:
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
       - APP_CONFIG_KEYCLOAK_URL=http://host.docker.internal:8571/
+      - MANAGEMENT_METRICS_DISTRIBUTION_PERCENTILESHISTOGRAM_HTTP_SERVER_REQUESTS=true
     networks:
       - banking-network
     depends_on:
@@ -34,6 +35,7 @@ services:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
       - MYSQL_HOST=host.docker.internal
       - APP_CONFIG_KEYCLOAK_SERVER_URL=http://host.docker.internal:8571
+      - MANAGEMENT_METRICS_DISTRIBUTION_PERCENTILESHISTOGRAM_HTTP_SERVER_REQUESTS=true
     networks:
       - banking-network
     depends_on:
@@ -48,6 +50,7 @@ services:
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
       - SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/account_service
+      - MANAGEMENT_METRICS_DISTRIBUTION_PERCENTILESHISTOGRAM_HTTP_SERVER_REQUESTS=true
     networks:
       - banking-network
     depends_on:
@@ -62,6 +65,7 @@ services:
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
       - SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/transaction_service
+      - MANAGEMENT_METRICS_DISTRIBUTION_PERCENTILESHISTOGRAM_HTTP_SERVER_REQUESTS=true
     networks:
       - banking-network
     depends_on:
@@ -76,6 +80,7 @@ services:
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
       - SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/fund_transfer_service
+      - MANAGEMENT_METRICS_DISTRIBUTION_PERCENTILESHISTOGRAM_HTTP_SERVER_REQUESTS=true
     networks:
       - banking-network
     depends_on:
@@ -90,6 +95,7 @@ services:
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
       - SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/sequence_generator
+      - MANAGEMENT_METRICS_DISTRIBUTION_PERCENTILESHISTOGRAM_HTTP_SERVER_REQUESTS=true
     networks:
       - banking-network
     depends_on:
@@ -156,29 +162,7 @@ services:
       - prometheus
     restart: unless-stopped
 
-  # ----------------------------------------------------------
-  # cAdvisor — Docker container resource metrics
-  # UI:      http://localhost:8089
-  # Metrics: http://localhost:8089/metrics  (scraped by Prometheus)
-  # NOTE: Host port 8089 used — 8080 is already taken by api-gateway
-  # ----------------------------------------------------------
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.47.2
-    container_name: cadvisor
-    ports:
-      - "8089:8080"
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-      - /dev/disk/:/dev/disk:ro
-    privileged: true
-    devices:
-      - /dev/kmsg
-    networks:
-      - banking-network
-    restart: unless-stopped
+
 
 networks:
   banking-network:

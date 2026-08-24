@@ -50,7 +50,7 @@ management:
 
     distribution:
       percentiles-histogram:
-        http.server.requests: true
+        all: true
 
       percentiles:
         http.server.requests: 0.50,0.95,0.99

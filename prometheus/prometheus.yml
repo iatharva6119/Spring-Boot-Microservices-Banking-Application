@@ -127,15 +127,4 @@ scrape_configs:
           service: 'fund-transfer'
           component: 'business'
 
-  # ----------------------------------------------------------
-  # cAdvisor — Docker Container Metrics (port 8080 internal)
-  # ----------------------------------------------------------
-  - job_name: 'cadvisor'
-    metrics_path: '/metrics'
-    scrape_interval: 5s
-    static_configs:
-      - targets:
-          - 'cadvisor:8080'
-        labels:
-          service: 'cadvisor'
-          component: 'infrastructure'
+

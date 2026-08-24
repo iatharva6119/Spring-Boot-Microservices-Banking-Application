@@ -2,19 +2,57 @@
   "__inputs": [],
   "__elements": {},
   "__requires": [
-    {"type": "grafana", "id": "grafana", "name": "Grafana", "version": "9.0.0"},
-    {"type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0"},
-    {"type": "panel", "id": "gauge", "name": "Gauge", "version": ""},
-    {"type": "panel", "id": "graph", "name": "Graph", "version": ""},
-    {"type": "panel", "id": "stat", "name": "Stat", "version": ""},
-    {"type": "panel", "id": "timeseries", "name": "Time series", "version": ""},
-    {"type": "panel", "id": "table", "name": "Table", "version": ""}
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "9.0.0"
+    },
+    {
+      "type": "datasource",
+      "id": "prometheus",
+      "name": "Prometheus",
+      "version": "1.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "gauge",
+      "name": "Gauge",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "graph",
+      "name": "Graph",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "stat",
+      "name": "Stat",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
+      "version": ""
+    }
   ],
   "annotations": {
     "list": [
       {
         "builtIn": 1,
-        "datasource": {"type": "grafana", "uid": "-- Grafana --"},
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
         "enable": true,
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
@@ -23,727 +61,1768 @@
       }
     ]
   },
-  "description": "Banking Application — Complete Performance Engineering Dashboard covering JVM, HTTP, CPU, Memory, GC, Threads, Database, Microservices, and Docker Container metrics.",
+  "description": "Banking Application \u2014 Complete Performance Engineering Dashboard covering JVM, HTTP, CPU, Memory, GC, Threads, Database, Microservices, and Docker Container metrics.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
   "links": [],
   "panels": [
-
     {
       "collapsed": false,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
       "id": 1,
-      "title": "🌐 Row 1 — Overall System",
+      "title": "\ud83c\udf10 Row 1 \u2014 Overall System",
       "type": "row"
     },
     {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
       "fieldConfig": {
         "defaults": {
-          "color": {"mode": "thresholds"},
-          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 100}, {"color": "red", "value": 500}]},
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 100
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          },
           "unit": "reqps"
         }
       },
-      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 1},
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
       "id": 2,
-      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "orientation": "auto", "textMode": "auto", "colorMode": "background", "graphMode": "area", "justifyMode": "auto"},
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
       "title": "Total RPS",
       "type": "stat",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "sum(rate(http_server_requests_seconds_count{application=~\"$service\"}[1m]))",
           "legendFormat": "RPS"
         }
       ]
     },
     {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
       "fieldConfig": {
         "defaults": {
-          "color": {"mode": "thresholds"},
-          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 1}, {"color": "red", "value": 5}]},
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
           "unit": "percentunit"
         }
       },
-      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 1},
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
       "id": 3,
-      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "orientation": "auto", "textMode": "auto", "colorMode": "background", "graphMode": "none", "justifyMode": "auto"},
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
       "title": "Error Rate (5xx)",
       "type": "stat",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "sum(rate(http_server_requests_seconds_count{application=~\"$service\", status=~\"5..\"}[1m])) / sum(rate(http_server_requests_seconds_count{application=~\"$service\"}[1m]))",
           "legendFormat": "Error %"
         }
       ]
     },
     {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "short", "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 50}, {"color": "red", "value": 200}]}}},
-      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 1},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 50
+              },
+              {
+                "color": "red",
+                "value": 200
+              }
+            ]
+          }
+        }
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      },
       "id": 4,
-      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "area", "justifyMode": "auto"},
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
       "title": "Active Services",
       "type": "stat",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "count(up{job=~\"api-gateway|account-service|user-service|sequence-generator|transaction-service|fund-transfer|service-registry\"} == 1)",
           "legendFormat": "UP"
         }
       ]
     },
     {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "short"}},
-      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 1},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
       "id": 5,
-      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "value", "graphMode": "area", "justifyMode": "auto"},
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
       "title": "Total HTTP Requests",
       "type": "stat",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "sum(increase(http_server_requests_seconds_count{application=~\"$service\"}[5m]))",
           "legendFormat": "Requests (5m)"
         }
       ]
     },
     {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "s", "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.5}, {"color": "red", "value": 2}]}}},
-      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 1},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.5
+              },
+              {
+                "color": "red",
+                "value": 2
+              }
+            ]
+          }
+        }
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
       "id": 6,
-      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "none", "justifyMode": "auto"},
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
       "title": "Avg Response Time",
       "type": "stat",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "sum(rate(http_server_requests_seconds_sum{application=~\"$service\"}[1m])) / sum(rate(http_server_requests_seconds_count{application=~\"$service\"}[1m]))",
           "legendFormat": "Avg Latency"
         }
       ]
     },
-
     {
       "collapsed": false,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 5},
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
       "id": 10,
-      "title": "⏱️ Row 2 — Latency (p50 / p90 / p95 / p99 / Max)",
+      "title": "\u23f1\ufe0f Row 2 \u2014 Latency (p50 / p90 / p95 / p99 / Max)",
       "type": "row"
     },
     {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {
-        "defaults": {"unit": "s", "custom": {"lineWidth": 2}},
-        "overrides": [
-          {"matcher": {"id": "byName", "options": "p50"},  "properties": [{"id": "color", "value": {"fixedColor": "#73BF69", "mode": "fixed"}}]},
-          {"matcher": {"id": "byName", "options": "p90"},  "properties": [{"id": "color", "value": {"fixedColor": "#F2CC0C", "mode": "fixed"}}]},
-          {"matcher": {"id": "byName", "options": "p95"},  "properties": [{"id": "color", "value": {"fixedColor": "#FF9830", "mode": "fixed"}}]},
-          {"matcher": {"id": "byName", "options": "p99"},  "properties": [{"id": "color", "value": {"fixedColor": "#F2495C", "mode": "fixed"}}]},
-          {"matcher": {"id": "byName", "options": "avg"},  "properties": [{"id": "color", "value": {"fixedColor": "#5794F2", "mode": "fixed"}}]}
-        ]
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
       },
-      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 6},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "fixedColor": "#73BF69",
+            "mode": "fixed"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 6
+      },
       "id": 11,
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max", "mean"]}},
-      "title": "Response Time Percentiles — ${service}",
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max",
+            "mean"
+          ]
+        }
+      },
+      "title": "p50 Latency (Median) \u2014 ${service}",
       "type": "timeseries",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
-          "expr": "histogram_quantile(0.50, sum(rate(http_server_requests_seconds_bucket{application=~\"$service\", uri!~\"/actuator.*\"}[5m])) by (le))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.50, sum(rate(http_server_requests_seconds_bucket{application=~\"$service\"}[5m])) by (le))",
           "legendFormat": "p50"
-        },
-        {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
-          "expr": "histogram_quantile(0.90, sum(rate(http_server_requests_seconds_bucket{application=~\"$service\", uri!~\"/actuator.*\"}[5m])) by (le))",
-          "legendFormat": "p90"
-        },
-        {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
-          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=~\"$service\", uri!~\"/actuator.*\"}[5m])) by (le))",
-          "legendFormat": "p95"
-        },
-        {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
-          "expr": "histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket{application=~\"$service\", uri!~\"/actuator.*\"}[5m])) by (le))",
-          "legendFormat": "p99"
-        },
-        {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
-          "expr": "sum(rate(http_server_requests_seconds_sum{application=~\"$service\", uri!~\"/actuator.*\"}[5m])) / sum(rate(http_server_requests_seconds_count{application=~\"$service\", uri!~\"/actuator.*\"}[5m]))",
-          "legendFormat": "avg"
         }
       ]
     },
-
     {
-      "collapsed": false,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 14},
-      "id": 20,
-      "title": "📊 Row 3 — HTTP Status Distribution",
-      "type": "row"
-    },
-    {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "reqps", "custom": {"lineWidth": 2}},
-        "overrides": [
-          {"matcher": {"id": "byName", "options": "2xx"}, "properties": [{"id": "color", "value": {"fixedColor": "#73BF69", "mode": "fixed"}}]},
-          {"matcher": {"id": "byName", "options": "4xx"}, "properties": [{"id": "color", "value": {"fixedColor": "#F2CC0C", "mode": "fixed"}}]},
-          {"matcher": {"id": "byName", "options": "5xx"}, "properties": [{"id": "color", "value": {"fixedColor": "#F2495C", "mode": "fixed"}}]}
-        ]
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
       },
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 15},
-      "id": 21,
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "right", "calcs": ["lastNotNull"]}},
-      "title": "HTTP Status Rate — ${service}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "fixedColor": "#F2CC0C",
+            "mode": "fixed"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 6
+      },
+      "id": 110,
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max",
+            "mean"
+          ]
+        }
+      },
+      "title": "p90 Latency \u2014 ${service}",
       "type": "timeseries",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.90, sum(rate(http_server_requests_seconds_bucket{application=~\"$service\"}[5m])) by (le))",
+          "legendFormat": "p90"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "fixedColor": "#FF9830",
+            "mode": "fixed"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 6
+      },
+      "id": 111,
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max",
+            "mean"
+          ]
+        }
+      },
+      "title": "p95 Latency \u2014 ${service}",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=~\"$service\"}[5m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "id": 20,
+      "title": "\ud83d\udcca Row 3 \u2014 HTTP Status Distribution",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 2
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "2xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#73BF69",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "4xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#F2CC0C",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "5xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#F2495C",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
+      "id": 21,
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "title": "HTTP Status Rate \u2014 ${service}",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "sum(rate(http_server_requests_seconds_count{application=~\"$service\", status=~\"2..\"}[1m]))",
           "legendFormat": "2xx"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "sum(rate(http_server_requests_seconds_count{application=~\"$service\", status=~\"4..\"}[1m]))",
           "legendFormat": "4xx"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "sum(rate(http_server_requests_seconds_count{application=~\"$service\", status=~\"5..\"}[1m]))",
           "legendFormat": "5xx"
         }
       ]
     },
     {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "reqps"}},
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 15},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
       "id": 22,
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "right", "calcs": ["lastNotNull"]}},
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
       "title": "RPS Per Service",
       "type": "timeseries",
       "targets": [
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "sum(rate(http_server_requests_seconds_count{application=\"api-gateway\"}[1m]))", "legendFormat": "api-gateway"},
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "sum(rate(http_server_requests_seconds_count{application=\"account-service\"}[1m]))", "legendFormat": "account-service"},
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "sum(rate(http_server_requests_seconds_count{application=\"user-service\"}[1m]))", "legendFormat": "user-service"},
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "sum(rate(http_server_requests_seconds_count{application=\"transaction-service\"}[1m]))", "legendFormat": "transaction-service"},
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "sum(rate(http_server_requests_seconds_count{application=\"fund-transfer-service\"}[1m]))", "legendFormat": "fund-transfer"},
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "sum(rate(http_server_requests_seconds_count{application=\"sequence-generator\"}[1m]))", "legendFormat": "sequence-generator"}
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"api-gateway\"}[1m]))",
+          "legendFormat": "api-gateway"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"account-service\"}[1m]))",
+          "legendFormat": "account-service"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"user-service\"}[1m]))",
+          "legendFormat": "user-service"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"transaction-service\"}[1m]))",
+          "legendFormat": "transaction-service"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"fund-transfer-service\"}[1m]))",
+          "legendFormat": "fund-transfer"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"sequence-generator\"}[1m]))",
+          "legendFormat": "sequence-generator"
+        }
       ]
     },
-
     {
       "collapsed": false,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 23},
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
       "id": 30,
-      "title": "☕ Row 4 — JVM Memory & Garbage Collection",
+      "title": "\u2615 Row 4 \u2014 JVM Memory & Garbage Collection",
       "type": "row"
     },
     {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "bytes", "custom": {"lineWidth": 2}}},
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "lineWidth": 2
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
       "id": 31,
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"]}},
-      "title": "JVM Heap Memory — ${service}",
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        }
+      },
+      "title": "JVM Heap Memory \u2014 ${service}",
       "type": "timeseries",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "sum(jvm_memory_used_bytes{application=~\"$service\", area=\"heap\"}) by (application)",
-          "legendFormat": "{{application}} — used"
+          "legendFormat": "{{application}} \u2014 used"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "sum(jvm_memory_committed_bytes{application=~\"$service\", area=\"heap\"}) by (application)",
-          "legendFormat": "{{application}} — committed"
+          "legendFormat": "{{application}} \u2014 committed"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "sum(jvm_memory_max_bytes{application=~\"$service\", area=\"heap\"}) by (application)",
-          "legendFormat": "{{application}} — max"
+          "legendFormat": "{{application}} \u2014 max"
         }
       ]
     },
     {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "bytes", "custom": {"lineWidth": 2}}},
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "lineWidth": 2
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
       "id": 32,
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"]}},
-      "title": "JVM Non-Heap Memory (Metaspace, etc.) — ${service}",
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        }
+      },
+      "title": "JVM Non-Heap Memory (Metaspace, etc.) \u2014 ${service}",
       "type": "timeseries",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "sum(jvm_memory_used_bytes{application=~\"$service\", area=\"nonheap\"}) by (application)",
-          "legendFormat": "{{application}} — non-heap used"
+          "legendFormat": "{{application}} \u2014 non-heap used"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "sum(jvm_memory_used_bytes{application=~\"$service\", id=~\".*Metaspace.*\"}) by (application)",
-          "legendFormat": "{{application}} — metaspace"
+          "legendFormat": "{{application}} \u2014 metaspace"
         }
       ]
     },
     {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "s", "custom": {"lineWidth": 2}}},
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
       "id": 33,
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max", "sum"]}},
-      "title": "GC Pause Duration — ${service}",
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max",
+            "sum"
+          ]
+        }
+      },
+      "title": "GC Pause Duration \u2014 ${service}",
       "type": "timeseries",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "sum(rate(jvm_gc_pause_seconds_sum{application=~\"$service\"}[1m])) by (application, action)",
-          "legendFormat": "{{application}} — {{action}}"
+          "legendFormat": "{{application}} \u2014 {{action}}"
         }
       ]
     },
     {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "ops", "custom": {"lineWidth": 2}}},
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 32},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "lineWidth": 2
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      },
       "id": 34,
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"]}},
-      "title": "GC Collections Rate — ${service}",
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "title": "GC Collections Rate \u2014 ${service}",
       "type": "timeseries",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "sum(rate(jvm_gc_pause_seconds_count{application=~\"$service\"}[1m])) by (application, action)",
-          "legendFormat": "{{application}} — {{action}}"
+          "legendFormat": "{{application}} \u2014 {{action}}"
         }
       ]
     },
-
     {
       "collapsed": false,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 40},
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 40
+      },
       "id": 40,
-      "title": "🧵 Row 4b — JVM Threads & Classes",
+      "title": "\ud83e\uddf5 Row 4b \u2014 JVM Threads & Classes",
       "type": "row"
     },
     {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 2}}},
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 41},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 41
+      },
       "id": 41,
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"]}},
-      "title": "JVM Threads — ${service}",
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        }
+      },
+      "title": "JVM Threads \u2014 ${service}",
       "type": "timeseries",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "jvm_threads_live_threads{application=~\"$service\"}",
-          "legendFormat": "{{application}} — live"
+          "legendFormat": "{{application}} \u2014 live"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "jvm_threads_peak_threads{application=~\"$service\"}",
-          "legendFormat": "{{application}} — peak"
+          "legendFormat": "{{application}} \u2014 peak"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "jvm_threads_daemon_threads{application=~\"$service\"}",
-          "legendFormat": "{{application}} — daemon"
+          "legendFormat": "{{application}} \u2014 daemon"
         }
       ]
     },
     {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 2}}},
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 41},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 41
+      },
       "id": 42,
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"]}},
-      "title": "JVM Loaded Classes — ${service}",
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "title": "JVM Loaded Classes \u2014 ${service}",
       "type": "timeseries",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "jvm_classes_loaded_classes{application=~\"$service\"}",
-          "legendFormat": "{{application}} — loaded"
+          "legendFormat": "{{application}} \u2014 loaded"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "jvm_classes_unloaded_classes_total{application=~\"$service\"}",
-          "legendFormat": "{{application}} — unloaded (total)"
+          "legendFormat": "{{application}} \u2014 unloaded (total)"
         }
       ]
     },
-
     {
       "collapsed": false,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 49},
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 49
+      },
       "id": 50,
-      "title": "💻 Row 5 — CPU",
+      "title": "\ud83d\udcbb Row 5 \u2014 CPU",
       "type": "row"
     },
     {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1, "custom": {"lineWidth": 2}}},
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 50},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "custom": {
+            "lineWidth": 2
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 50
+      },
       "id": 51,
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max", "mean"]}},
-      "title": "Process CPU Usage — ${service}",
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max",
+            "mean"
+          ]
+        }
+      },
+      "title": "Process CPU Usage \u2014 ${service}",
       "type": "timeseries",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "process_cpu_usage{application=~\"$service\"}",
-          "legendFormat": "{{application}} — process CPU"
+          "legendFormat": "{{application}} \u2014 process CPU"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "system_cpu_usage{application=~\"$service\"}",
-          "legendFormat": "{{application}} — system CPU"
+          "legendFormat": "{{application}} \u2014 system CPU"
         }
       ]
     },
-    {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "custom": {"lineWidth": 2}}},
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 50},
-      "id": 52,
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max", "mean"]}},
-      "title": "Container CPU Usage (cAdvisor)",
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
-          "expr": "sum(rate(container_cpu_usage_seconds_total{name=~\"api-gateway|account-service|user-service|sequence-generator|transaction-service|fund-transfer|service-registry\"}[1m])) by (name)",
-          "legendFormat": "{{name}}"
-        }
-      ]
-    },
-
     {
       "collapsed": false,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 58},
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 58
+      },
       "id": 60,
-      "title": "🧠 Row 6 — Memory",
+      "title": "\ud83e\udde0 Row 6 \u2014 Memory",
       "type": "row"
     },
     {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "bytes", "custom": {"lineWidth": 2}}},
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 59},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "lineWidth": 2
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 59
+      },
       "id": 61,
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"]}},
-      "title": "Process Memory (JVM Total) — ${service}",
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        }
+      },
+      "title": "Process Memory (JVM Total) \u2014 ${service}",
       "type": "timeseries",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "sum(jvm_memory_used_bytes{application=~\"$service\"}) by (application)",
-          "legendFormat": "{{application}} — JVM used"
+          "legendFormat": "{{application}} \u2014 JVM used"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "sum(jvm_memory_committed_bytes{application=~\"$service\"}) by (application)",
-          "legendFormat": "{{application}} — JVM committed"
+          "legendFormat": "{{application}} \u2014 JVM committed"
         }
       ]
     },
-    {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "bytes", "custom": {"lineWidth": 2}}},
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 59},
-      "id": 62,
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"]}},
-      "title": "Container Memory Usage (cAdvisor)",
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
-          "expr": "container_memory_usage_bytes{name=~\"api-gateway|account-service|user-service|sequence-generator|transaction-service|fund-transfer|service-registry\"}",
-          "legendFormat": "{{name}}"
-        }
-      ]
-    },
-
     {
       "collapsed": false,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 67},
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 67
+      },
       "id": 70,
-      "title": "🔗 Row 7 — Per-Microservice Latency & RPS",
+      "title": "\ud83d\udd17 Row 7 \u2014 Per-Microservice Latency & RPS",
       "type": "row"
     },
     {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "s", "custom": {"lineWidth": 2}}},
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 68},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 68
+      },
       "id": 71,
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"]}},
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        }
+      },
       "title": "p95 Latency Per Service",
       "type": "timeseries",
       "targets": [
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"api-gateway\", uri!~\"/actuator.*\"}[5m])) by (le))", "legendFormat": "api-gateway"},
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"account-service\", uri!~\"/actuator.*\"}[5m])) by (le))", "legendFormat": "account-service"},
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"user-service\", uri!~\"/actuator.*\"}[5m])) by (le))", "legendFormat": "user-service"},
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"transaction-service\", uri!~\"/actuator.*\"}[5m])) by (le))", "legendFormat": "transaction-service"},
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"fund-transfer-service\", uri!~\"/actuator.*\"}[5m])) by (le))", "legendFormat": "fund-transfer"},
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"sequence-generator\", uri!~\"/actuator.*\"}[5m])) by (le))", "legendFormat": "sequence-generator"}
-      ]
-    },
-    {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "reqps", "custom": {"lineWidth": 2}}},
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 68},
-      "id": 72,
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "mean"]}},
-      "title": "Throughput Per Service",
-      "type": "timeseries",
-      "targets": [
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "sum(rate(http_server_requests_seconds_count{application=\"api-gateway\"}[1m]))", "legendFormat": "api-gateway"},
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "sum(rate(http_server_requests_seconds_count{application=\"account-service\"}[1m]))", "legendFormat": "account-service"},
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "sum(rate(http_server_requests_seconds_count{application=\"user-service\"}[1m]))", "legendFormat": "user-service"},
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "sum(rate(http_server_requests_seconds_count{application=\"transaction-service\"}[1m]))", "legendFormat": "transaction-service"},
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "sum(rate(http_server_requests_seconds_count{application=\"fund-transfer-service\"}[1m]))", "legendFormat": "fund-transfer"},
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "sum(rate(http_server_requests_seconds_count{application=\"sequence-generator\"}[1m]))", "legendFormat": "sequence-generator"}
-      ]
-    },
-
-    {
-      "collapsed": false,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 76},
-      "id": 80,
-      "title": "🗄️ Row 8 — Database Connection Pool",
-      "type": "row"
-    },
-    {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 2}}},
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 77},
-      "id": 81,
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"]}},
-      "title": "HikariCP Connection Pool — Active / Idle / Max",
-      "type": "timeseries",
-      "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
-          "expr": "hikaricp_connections_active{application=~\"$service\"}",
-          "legendFormat": "{{application}} — active"
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"api-gateway\"}[5m])) by (le))",
+          "legendFormat": "api-gateway"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
-          "expr": "hikaricp_connections_idle{application=~\"$service\"}",
-          "legendFormat": "{{application}} — idle"
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"account-service\"}[5m])) by (le))",
+          "legendFormat": "account-service"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
-          "expr": "hikaricp_connections_max{application=~\"$service\"}",
-          "legendFormat": "{{application}} — max"
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"user-service\"}[5m])) by (le))",
+          "legendFormat": "user-service"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"transaction-service\"}[5m])) by (le))",
+          "legendFormat": "transaction-service"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"fund-transfer-service\"}[5m])) by (le))",
+          "legendFormat": "fund-transfer"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"sequence-generator\"}[5m])) by (le))",
+          "legendFormat": "sequence-generator"
         }
       ]
     },
     {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1, "custom": {"lineWidth": 2}}},
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 77},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 2
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 68
+      },
+      "id": 72,
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean"
+          ]
+        }
+      },
+      "title": "Throughput Per Service",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"api-gateway\"}[1m]))",
+          "legendFormat": "api-gateway"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"account-service\"}[1m]))",
+          "legendFormat": "account-service"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"user-service\"}[1m]))",
+          "legendFormat": "user-service"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"transaction-service\"}[1m]))",
+          "legendFormat": "transaction-service"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"fund-transfer-service\"}[1m]))",
+          "legendFormat": "fund-transfer"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"sequence-generator\"}[1m]))",
+          "legendFormat": "sequence-generator"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 76
+      },
+      "id": 80,
+      "title": "\ud83d\uddc4\ufe0f Row 8 \u2014 Database Connection Pool",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 77
+      },
+      "id": 81,
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        }
+      },
+      "title": "HikariCP Connection Pool \u2014 Active / Idle / Max",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "hikaricp_connections_active{application=~\"$service\"}",
+          "legendFormat": "{{application}} \u2014 active"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "hikaricp_connections_idle{application=~\"$service\"}",
+          "legendFormat": "{{application}} \u2014 idle"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "hikaricp_connections_max{application=~\"$service\"}",
+          "legendFormat": "{{application}} \u2014 max"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "custom": {
+            "lineWidth": 2
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 77
+      },
       "id": 82,
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"]}},
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        }
+      },
       "title": "HikariCP Connection Pool Utilization %",
       "type": "timeseries",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "hikaricp_connections_active{application=~\"$service\"} / hikaricp_connections_max{application=~\"$service\"}",
-          "legendFormat": "{{application}} — utilization"
+          "legendFormat": "{{application}} \u2014 utilization"
         }
       ]
     },
     {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "s", "custom": {"lineWidth": 2}}},
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 85},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 85
+      },
       "id": 83,
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"]}},
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        }
+      },
       "title": "HikariCP Connection Acquisition Time",
       "type": "timeseries",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "sum(rate(hikaricp_connections_acquire_seconds_sum{application=~\"$service\"}[1m])) by (application) / sum(rate(hikaricp_connections_acquire_seconds_count{application=~\"$service\"}[1m])) by (application)",
-          "legendFormat": "{{application}} — avg acquire time"
+          "legendFormat": "{{application}} \u2014 avg acquire time"
         }
       ]
     },
     {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 2}}},
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 85},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 85
+      },
       "id": 84,
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"]}},
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
       "title": "HikariCP Pending Connections (Pool Pressure)",
       "type": "timeseries",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "hikaricp_connections_pending{application=~\"$service\"}",
-          "legendFormat": "{{application}} — pending"
+          "legendFormat": "{{application}} \u2014 pending"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "hikaricp_connections_timeout_total{application=~\"$service\"}",
-          "legendFormat": "{{application}} — timeouts (total)"
+          "legendFormat": "{{application}} \u2014 timeouts (total)"
         }
       ]
     },
-
     {
       "collapsed": false,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 93},
-      "id": 90,
-      "title": "🐳 Row 9 — Docker Container Resources (cAdvisor)",
-      "type": "row"
-    },
-    {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "percentunit", "custom": {"lineWidth": 2}}},
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 94},
-      "id": 91,
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"]}},
-      "title": "Container CPU Usage (cAdvisor)",
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
-          "expr": "sum(rate(container_cpu_usage_seconds_total{name=~\"api-gateway|account-service|user-service|sequence-generator|transaction-service|fund-transfer|service-registry\"}[1m])) by (name)",
-          "legendFormat": "{{name}}"
-        }
-      ]
-    },
-    {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "bytes", "custom": {"lineWidth": 2}}},
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 94},
-      "id": 92,
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"]}},
-      "title": "Container Memory Usage (cAdvisor)",
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
-          "expr": "container_memory_usage_bytes{name=~\"api-gateway|account-service|user-service|sequence-generator|transaction-service|fund-transfer|service-registry\"}",
-          "legendFormat": "{{name}}"
-        }
-      ]
-    },
-    {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "Bps", "custom": {"lineWidth": 2}}},
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 102},
-      "id": 93,
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"]}},
-      "title": "Container Network I/O",
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
-          "expr": "sum(rate(container_network_receive_bytes_total{name=~\"api-gateway|account-service|user-service|sequence-generator|transaction-service|fund-transfer|service-registry\"}[1m])) by (name)",
-          "legendFormat": "{{name}} — RX"
-        },
-        {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
-          "expr": "sum(rate(container_network_transmit_bytes_total{name=~\"api-gateway|account-service|user-service|sequence-generator|transaction-service|fund-transfer|service-registry\"}[1m])) by (name)",
-          "legendFormat": "{{name}} — TX"
-        }
-      ]
-    },
-    {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 2}}},
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 102},
-      "id": 94,
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"]}},
-      "title": "Container Restarts",
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
-          "expr": "kube_pod_container_status_restarts_total",
-          "legendFormat": "{{container}}"
-        }
-      ]
-    },
-
-    {
-      "collapsed": false,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 110},
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 110
+      },
       "id": 100,
-      "title": "🎯 Row 10 — Prometheus Scrape Targets Health",
+      "title": "\ud83c\udfaf Row 10 \u2014 Prometheus Scrape Targets Health",
       "type": "row"
     },
     {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
       "fieldConfig": {
         "defaults": {
-          "color": {"mode": "thresholds"},
-          "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]},
-          "mappings": [{"type": "value", "options": {"0": {"text": "DOWN", "color": "red"}, "1": {"text": "UP", "color": "green"}}}]
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                }
+              }
+            }
+          ]
         }
       },
-      "gridPos": {"h": 4, "w": 24, "x": 0, "y": 111},
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 111
+      },
       "id": 101,
       "options": {
-        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
         "orientation": "horizontal",
         "textMode": "value_and_name",
         "colorMode": "background",
         "graphMode": "none",
         "justifyMode": "auto"
       },
-      "title": "Prometheus Scrape Targets — UP/DOWN",
+      "title": "Prometheus Scrape Targets \u2014 UP/DOWN",
       "type": "stat",
       "targets": [
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "up{job=\"api-gateway\"}", "legendFormat": "api-gateway"},
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "up{job=\"account-service\"}", "legendFormat": "account-service"},
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "up{job=\"user-service\"}", "legendFormat": "user-service"},
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "up{job=\"sequence-generator\"}", "legendFormat": "sequence-generator"},
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "up{job=\"transaction-service\"}", "legendFormat": "transaction-service"},
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "up{job=\"fund-transfer\"}", "legendFormat": "fund-transfer"},
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "up{job=\"service-registry\"}", "legendFormat": "service-registry"},
-        {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "up{job=\"cadvisor\"}", "legendFormat": "cadvisor"}
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "up{job=\"api-gateway\"}",
+          "legendFormat": "api-gateway"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "up{job=\"account-service\"}",
+          "legendFormat": "account-service"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "up{job=\"user-service\"}",
+          "legendFormat": "user-service"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "up{job=\"sequence-generator\"}",
+          "legendFormat": "sequence-generator"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "up{job=\"transaction-service\"}",
+          "legendFormat": "transaction-service"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "up{job=\"fund-transfer\"}",
+          "legendFormat": "fund-transfer"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "up{job=\"service-registry\"}",
+          "legendFormat": "service-registry"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "up{job=\"cadvisor\"}",
+          "legendFormat": "cadvisor"
+        }
       ]
     },
     {
-      "datasource": {"type": "prometheus", "uid": "${datasource}"},
-      "fieldConfig": {"defaults": {"unit": "s", "custom": {"lineWidth": 2}}},
-      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 115},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 115
+      },
       "id": 102,
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"]}},
-      "title": "Process Uptime — ${service}",
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "title": "Process Uptime \u2014 ${service}",
       "type": "timeseries",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "process_uptime_seconds{application=~\"$service\"}",
           "legendFormat": "{{application}}"
         }
       ]
     }
   ],
-
   "refresh": "30s",
   "schemaVersion": 38,
-  "tags": ["banking", "performance", "jvm", "microservices"],
+  "tags": [
+    "banking",
+    "performance",
+    "jvm",
+    "microservices"
+  ],
   "templating": {
     "list": [
       {
         "current": {},
-        "datasource": {"type": "prometheus", "uid": "${datasource}"},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
         "definition": "label_values(jvm_memory_used_bytes, application)",
         "hide": 0,
         "includeAll": true,
@@ -774,10 +1853,13 @@
       }
     ]
   },
-  "time": {"from": "now-1h", "to": "now"},
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Banking Application — Performance Engineering",
+  "title": "Banking Application \u2014 Performance Engineering",
   "uid": "banking-perf-eng-v1",
   "version": 1,
   "weekStart": ""
