@@ -1,0 +1,62 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "liveNow": false,
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": [
+    "phase6"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "version": 1,
+  "title": "Phase 6 - Istio/Envoy Metrics",
+  "uid": "phase6-istio-envoy",
+  "panels": [
+    {
+      "title": "Envoy Request Rate",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "targets": [
+        { "datasource": "Prometheus", "expr": "rate(istio_requests_total{reporter=\"destination\", destination_workload_namespace=\"banking\"}[1m])",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Envoy P99 Latency",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "targets": [
+        { "datasource": "Prometheus", "expr": "histogram_quantile(0.99, sum by (le) (rate(istio_request_duration_milliseconds_bucket{reporter=\"destination\", destination_workload_namespace=\"banking\"}[1m])))",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

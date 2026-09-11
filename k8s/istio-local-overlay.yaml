@@ -1,0 +1,17 @@
+# Local Docker Desktop overlay — changes istio-ingressgateway to NodePort
+# to avoid SyncLoadBalancerFailed on Windows (HTTP.sys owns port 80).
+# DO NOT apply in production environments.
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: installed-state
+  namespace: istio-system
+spec:
+  components:
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: true
+      k8s:
+        serviceAnnotations: {}
+        service:
+          type: NodePort

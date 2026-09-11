@@ -3,7 +3,8 @@ FROM eclipse-temurin:17-jdk
 WORKDIR /app
 
 COPY target/*.jar app.jar
+COPY opentelemetry-javaagent.jar opentelemetry-javaagent.jar
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-javaagent:opentelemetry-javaagent.jar", "-jar", "app.jar"]

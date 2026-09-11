@@ -1,0 +1,29 @@
+﻿# ============================================================
+# Service: service-registry (Eureka Server)
+# ============================================================
+# Type: NodePort so we can view the Eureka dashboard from Windows
+# NodePort 30761 means: http://localhost:30761 on Windows
+#
+# IMPORTANT: The name 'service-registry' is used by all other
+# services in their Eureka URL:
+#   http://service-registry:8761/eureka/
+# Kubernetes DNS resolves 'service-registry' to this Service's
+# ClusterIP, which then forwards to the Eureka pod.
+# ============================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-registry
+  namespace: banking
+  labels:
+    app: service-registry
+    app.kubernetes.io/part-of: banking-application
+spec:
+  selector:
+    app: service-registry
+  ports:
+  - name: http
+    port: 8761
+    targetPort: 8761
+    nodePort: 30761
+  type: NodePort

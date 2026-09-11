@@ -3,10 +3,10 @@ package org.training.account.service.exception;
 public class ResourceConflict extends GlobalException{
 
     public ResourceConflict() {
-        super("Account already exists", GlobalErrorCode.CONFLICT);
+        super(GlobalErrorCode.CONFLICT, "Account already exists");
     }
 
     public ResourceConflict(String message) {
-        super(message, GlobalErrorCode.CONFLICT);
+        super(GlobalErrorCode.CONFLICT, message);
     }
 }

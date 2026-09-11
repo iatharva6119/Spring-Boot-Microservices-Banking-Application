@@ -1,0 +1,24 @@
+﻿# ============================================================
+# Service: api-gateway
+# ============================================================
+# Type: NodePort — makes the API Gateway accessible from Windows.
+# NodePort 30080 means clients use http://localhost:30080
+# to reach the banking API from a browser or Postman.
+# ============================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: banking
+  labels:
+    app: api-gateway
+    app.kubernetes.io/part-of: banking-application
+spec:
+  selector:
+    app: api-gateway
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    nodePort: 30080
+  type: NodePort

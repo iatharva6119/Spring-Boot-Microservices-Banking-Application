@@ -1,0 +1,62 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "liveNow": false,
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": [
+    "phase6"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "version": 1,
+  "title": "Phase 6 - HPA Metrics",
+  "uid": "phase6-hpa",
+  "panels": [
+    {
+      "title": "HPA Replicas",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "targets": [
+        { "datasource": "Prometheus", "expr": "kube_horizontalpodautoscaler_status_current_replicas{namespace=\"banking\"}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "HPA Target CPU",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "targets": [
+        { "datasource": "Prometheus", "expr": "kube_horizontalpodautoscaler_spec_target_metric{namespace=\"banking\"}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

@@ -21,3 +21,24 @@ datasources:
     jsonData:
       timeInterval: "5s"
       httpMethod: POST
+
+  - name: Loki
+    type: loki
+    access: proxy
+    orgId: 1
+    uid: Loki
+    url: http://loki:3100
+    basicAuth: false
+    isDefault: false
+    version: 1
+    editable: false
+
+  - name: Jaeger
+    type: jaeger
+    access: proxy
+    orgId: 1
+    url: http://jaeger-query:16686
+    basicAuth: false
+    isDefault: false
+    version: 1
+    editable: false

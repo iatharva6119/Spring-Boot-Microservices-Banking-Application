@@ -1,0 +1,16 @@
+﻿apiVersion: v1
+kind: Service
+metadata:
+  name: fund-transfer
+  namespace: banking
+  labels:
+    app: fund-transfer
+    app.kubernetes.io/part-of: banking-application
+spec:
+  selector:
+    app: fund-transfer
+  ports:
+  - name: http
+    port: 8085
+    targetPort: 8085
+  type: ClusterIP

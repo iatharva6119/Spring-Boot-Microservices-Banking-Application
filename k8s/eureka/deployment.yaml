@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-registry
+  namespace: banking
+  labels:
+    app: service-registry
+    app.kubernetes.io/part-of: banking-application
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service-registry
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: '8761'
+      labels:
+        app: service-registry
+    spec:
+      containers:
+      - name: service-registry
+        image: localhost:5001/banking/service-registry:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8761
+          name: http
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: http
+          initialDelaySeconds: 120
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: http
+          initialDelaySeconds: 180
+          periodSeconds: 15
+        env:
+        - name: JAVA_TOOL_OPTIONS
+          value: -Xms128m -Xmx256m
+        - name: MANAGEMENT_METRICS_DISTRIBUTION_PERCENTILESHISTOGRAM_HTTP_SERVER_REQUESTS
+          value: 'true'
+        - name: OTEL_TRACES_EXPORTER
+          value: none
+        - name: OTEL_METRICS_EXPORTER
+          value: none
+        - name: OTEL_LOGS_EXPORTER
+          value: none
+        - name: OTEL_PROPAGATORS
+          value: b3multi,tracecontext
+      terminationGracePeriodSeconds: 30

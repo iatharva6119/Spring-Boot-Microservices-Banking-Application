@@ -1,0 +1,62 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "liveNow": false,
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": [
+    "phase6"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "version": 1,
+  "title": "Phase 6 - Kubernetes Metrics",
+  "uid": "phase6-kubernetes",
+  "panels": [
+    {
+      "title": "Pod Count",
+      "type": "stat",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "targets": [
+        { "datasource": "Prometheus", "expr": "count(kube_pod_info{namespace=\"banking\"})",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Pod Restarts",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "targets": [
+        { "datasource": "Prometheus", "expr": "rate(kube_pod_container_status_restarts_total{namespace=\"banking\"}[5m])",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

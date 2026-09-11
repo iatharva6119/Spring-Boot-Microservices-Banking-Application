@@ -1,10 +1,12 @@
 server:
   port: 8080
+  forward-headers-strategy: framework
 
 app:
   config:
     keycloak:
-      url: http://localhost:8571/
+      internal-url: http://localhost:8571
+      external-url: http://localhost:8571
       realm: banking-service
 
 eureka:
@@ -49,11 +51,11 @@ spring:
       client:
         provider:
           keycloak:
-            token-uri: ${app.config.keycloak.url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/token
-            authorization-uri: ${app.config.keycloak.url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/auth
+            token-uri: ${app.config.keycloak.internal-url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/token
+            authorization-uri: ${app.config.keycloak.external-url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/auth
             user-name-attribute: preferred_username
-            user-info-uri: ${app.config.keycloak.url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/userinfo
-            jwk-set-uri: ${app.config.keycloak.url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/certs
+            user-info-uri: ${app.config.keycloak.internal-url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/userinfo
+            jwk-set-uri: ${app.config.keycloak.internal-url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/certs
             user-info-authentication-method: header
         registration:
           banking-service-client:
@@ -61,11 +63,11 @@ spring:
             client-id: banking-service-client
             client-secret: 7ZXjz5ZBz9EzoBBr1reNOVfmd2XqQSwJ
             authorization-grant-type: authorization_code
-            redirect-uri: http://localhost:8571/login/oauth2/code/keycloak
+            redirect-uri: "{baseUrl}/login/oauth2/code/keycloak"
             scope: openid
       resourceserver:
         jwt:
-          jwk-set-uri: ${app.config.keycloak.url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/certs
+          jwk-set-uri: ${app.config.keycloak.internal-url}/realms/${app.config.keycloak.realm}/protocol/openid-connect/certs
 
 # ============================================================
 # Performance Engineering Monitoring — Actuator + Prometheus

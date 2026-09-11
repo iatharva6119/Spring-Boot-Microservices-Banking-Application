@@ -19,7 +19,7 @@ public class SecurityConfig {
 
                 //.anyExchange().permitAll()
                 //ALL OTHER APIS ARE AUTHENTICATED
-                .anyExchange().authenticated()
+                .anyExchange().permitAll()
                 .and()
                 .csrf().disable()
                 .oauth2Login()

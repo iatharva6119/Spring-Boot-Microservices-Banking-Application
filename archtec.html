@@ -1,0 +1,2212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Spring Boot Microservices Banking — Architecture</title>
+<meta name="description" content="Complete interactive system architecture, request flow, Kubernetes and Istio visualization for the Spring Boot Microservices Banking Application."/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+/* ===================== RESET & BASE ===================== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b0f1a;
+  --bg2:#111827;
+  --bg3:#1a2235;
+  --bg4:#1e293b;
+  --card:#16213e;
+  --border:#2a3a5c;
+  --border2:#334166;
+  --primary:#3b82f6;
+  --primary-g:linear-gradient(135deg,#3b82f6,#6366f1);
+  --cyan:#06b6d4;
+  --green:#10b981;
+  --yellow:#f59e0b;
+  --red:#ef4444;
+  --purple:#8b5cf6;
+  --pink:#ec4899;
+  --orange:#f97316;
+  --text:#e2e8f0;
+  --text2:#94a3b8;
+  --text3:#64748b;
+  --radius:12px;
+  --shadow:0 4px 24px rgba(0,0,0,.5);
+  --glow-blue:0 0 20px rgba(59,130,246,.3);
+  --glow-green:0 0 20px rgba(16,185,129,.3);
+  --glow-purple:0 0 20px rgba(139,92,246,.3);
+}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+a{color:var(--primary);text-decoration:none}
+
+/* ===================== HEADER ===================== */
+.header{background:linear-gradient(135deg,#0b0f1a 0%,#1a2235 50%,#0f172a 100%);border-bottom:1px solid var(--border);padding:32px 40px;position:relative;overflow:hidden}
+.header::before{content:'';position:absolute;top:-50%;left:-20%;width:500px;height:500px;background:radial-gradient(circle,rgba(59,130,246,.08) 0%,transparent 70%);pointer-events:none}
+.header::after{content:'';position:absolute;bottom:-30%;right:-10%;width:400px;height:400px;background:radial-gradient(circle,rgba(139,92,246,.06) 0%,transparent 70%);pointer-events:none}
+.header-inner{max-width:1600px;margin:0 auto;position:relative}
+.header-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);border-radius:50px;padding:6px 16px;font-size:12px;font-weight:600;color:var(--primary);letter-spacing:.05em;text-transform:uppercase;margin-bottom:16px}
+.header-badge .dot{width:8px;height:8px;border-radius:50%;background:var(--primary);animation:pulse 2s infinite}
+h1.main-title{font-size:clamp(28px,4vw,48px);font-weight:800;line-height:1.1;background:linear-gradient(135deg,#e2e8f0 30%,#3b82f6 70%,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:10px}
+.subtitle{color:var(--text2);font-size:16px;font-weight:400;margin-bottom:24px}
+.header-meta{display:flex;flex-wrap:wrap;gap:16px}
+.meta-chip{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;color:var(--text2)}
+.meta-chip strong{color:var(--text);font-weight:600}
+.meta-chip .icon{font-size:16px}
+
+/* ===================== SUMMARY CARDS ===================== */
+.section{max-width:1600px;margin:0 auto;padding:32px 40px}
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:40px}
+.summary-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;cursor:pointer;transition:all .3s ease;position:relative;overflow:hidden}
+.summary-card::before{content:'';position:absolute;inset:0;background:var(--primary-g);opacity:0;transition:.3s}
+.summary-card:hover{border-color:var(--primary);box-shadow:var(--glow-blue);transform:translateY(-2px)}
+.summary-card:hover::before{opacity:.05}
+.summary-card .sc-icon{font-size:28px;margin-bottom:10px}
+.summary-card .sc-value{font-size:36px;font-weight:800;color:var(--text);margin-bottom:2px}
+.summary-card .sc-label{font-size:12px;color:var(--text2);font-weight:500;text-transform:uppercase;letter-spacing:.05em}
+.summary-card .sc-detail{font-size:11px;color:var(--text3);margin-top:6px}
+
+/* ===================== NAV TABS ===================== */
+.tab-nav{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--border);margin-bottom:0;padding-bottom:0}
+.tab-nav::-webkit-scrollbar{display:none}
+.tab-btn{display:flex;align-items:center;gap:8px;padding:12px 20px;border:none;background:transparent;color:var(--text2);font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;transition:.25s;white-space:nowrap;border-radius:8px 8px 0 0}
+.tab-btn:hover{color:var(--text);background:rgba(255,255,255,.04)}
+.tab-btn.active{color:var(--primary);border-bottom-color:var(--primary);background:rgba(59,130,246,.08)}
+.tab-btn .tb-icon{font-size:16px}
+
+/* ===================== TAB CONTENT ===================== */
+.tab-content{display:none;animation:fadeIn .3s ease}
+.tab-content.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ===================== SECTION TITLES ===================== */
+.section-title{font-size:22px;font-weight:700;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.section-subtitle{font-size:14px;color:var(--text2);margin-bottom:28px}
+
+/* ===================== ARCHITECTURE DIAGRAM ===================== */
+.arch-wrapper{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:32px;overflow:auto;position:relative}
+.arch-zone{border:1px solid;border-radius:12px;padding:20px;margin-bottom:20px;position:relative}
+.arch-zone-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.arch-zone-title .zone-badge{padding:2px 10px;border-radius:50px;font-size:10px;font-weight:700}
+
+/* Zone colors */
+.zone-external{border-color:rgba(6,182,212,.3);background:rgba(6,182,212,.04)}
+.zone-external .arch-zone-title{color:var(--cyan)}
+.zone-external .zone-badge{background:rgba(6,182,212,.15);color:var(--cyan)}
+.zone-ingress{border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.04)}
+.zone-ingress .arch-zone-title{color:var(--yellow)}
+.zone-ingress .zone-badge{background:rgba(245,158,11,.15);color:var(--yellow)}
+.zone-gateway{border-color:rgba(59,130,246,.3);background:rgba(59,130,246,.04)}
+.zone-gateway .arch-zone-title{color:var(--primary)}
+.zone-gateway .zone-badge{background:rgba(59,130,246,.15);color:var(--primary)}
+.zone-mesh{border-color:rgba(139,92,246,.3);background:rgba(139,92,246,.04)}
+.zone-mesh .arch-zone-title{color:var(--purple)}
+.zone-mesh .zone-badge{background:rgba(139,92,246,.15);color:var(--purple)}
+.zone-services{border-color:rgba(16,185,129,.3);background:rgba(16,185,129,.04)}
+.zone-services .arch-zone-title{color:var(--green)}
+.zone-services .zone-badge{background:rgba(16,185,129,.15);color:var(--green)}
+.zone-data{border-color:rgba(249,115,22,.3);background:rgba(249,115,22,.04)}
+.zone-data .arch-zone-title{color:var(--orange)}
+.zone-data .zone-badge{background:rgba(249,115,22,.15);color:var(--orange)}
+.zone-infra{border-color:rgba(100,116,139,.3);background:rgba(100,116,139,.04)}
+.zone-infra .arch-zone-title{color:var(--text2)}
+.zone-infra .zone-badge{background:rgba(100,116,139,.15);color:var(--text2)}
+.zone-monitoring{border-color:rgba(236,72,153,.3);background:rgba(236,72,153,.04)}
+.zone-monitoring .arch-zone-title{color:var(--pink)}
+.zone-monitoring .zone-badge{background:rgba(236,72,153,.15);color:var(--pink)}
+
+/* Nodes */
+.nodes-row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.node{border:1px solid;border-radius:10px;padding:14px 18px;cursor:pointer;transition:all .25s ease;min-width:140px;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:flex-start}
+.node::after{content:'';position:absolute;inset:0;opacity:0;transition:.25s;background:linear-gradient(135deg,rgba(255,255,255,.06),transparent)}
+.node:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.node:hover::after{opacity:1}
+.node-icon{font-size:22px;margin-bottom:6px}
+.node-name{font-size:13px;font-weight:600;color:var(--text)}
+.node-port{font-size:11px;font-weight:500;margin-top:4px;font-family:'JetBrains Mono',monospace}
+.node-tag{font-size:10px;padding:2px 8px;border-radius:50px;margin-top:6px;font-weight:600}
+
+/* Node variants */
+.node-blue{border-color:rgba(59,130,246,.4);background:rgba(59,130,246,.08)}
+.node-blue .node-port{color:var(--primary)}
+.node-blue .node-tag{background:rgba(59,130,246,.15);color:var(--primary)}
+.node-blue:hover{border-color:var(--primary);box-shadow:var(--glow-blue)}
+.node-green{border-color:rgba(16,185,129,.4);background:rgba(16,185,129,.08)}
+.node-green .node-port{color:var(--green)}
+.node-green .node-tag{background:rgba(16,185,129,.15);color:var(--green)}
+.node-green:hover{border-color:var(--green);box-shadow:var(--glow-green)}
+.node-purple{border-color:rgba(139,92,246,.4);background:rgba(139,92,246,.08)}
+.node-purple .node-port{color:var(--purple)}
+.node-purple .node-tag{background:rgba(139,92,246,.15);color:var(--purple)}
+.node-purple:hover{border-color:var(--purple);box-shadow:var(--glow-purple)}
+.node-cyan{border-color:rgba(6,182,212,.4);background:rgba(6,182,212,.08)}
+.node-cyan .node-port{color:var(--cyan)}
+.node-cyan .node-tag{background:rgba(6,182,212,.15);color:var(--cyan)}
+.node-cyan:hover{border-color:var(--cyan)}
+.node-yellow{border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.08)}
+.node-yellow .node-port{color:var(--yellow)}
+.node-yellow .node-tag{background:rgba(245,158,11,.15);color:var(--yellow)}
+.node-yellow:hover{border-color:var(--yellow)}
+.node-orange{border-color:rgba(249,115,22,.4);background:rgba(249,115,22,.08)}
+.node-orange .node-port{color:var(--orange)}
+.node-orange .node-tag{background:rgba(249,115,22,.15);color:var(--orange)}
+.node-orange:hover{border-color:var(--orange)}
+.node-pink{border-color:rgba(236,72,153,.4);background:rgba(236,72,153,.08)}
+.node-pink .node-port{color:var(--pink)}
+.node-pink .node-tag{background:rgba(236,72,153,.15);color:var(--pink)}
+.node-pink:hover{border-color:var(--pink)}
+.node-red{border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.08)}
+.node-red .node-port{color:var(--red)}
+.node-red .node-tag{background:rgba(239,68,68,.15);color:var(--red)}
+
+/* Connector arrows */
+.arrow-down{text-align:center;font-size:22px;color:var(--border2);padding:6px 0;line-height:1;position:relative}
+.arrow-down .arrow-label{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text3);display:block;margin-top:2px}
+.arrow-right{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text3);padding:0 8px}
+
+/* ===================== SERVICE DETAIL MODAL ===================== */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg3);border:1px solid var(--border2);border-radius:20px;max-width:680px;width:90%;max-height:85vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.7);animation:modalIn .25s ease}
+@keyframes modalIn{from{opacity:0;transform:scale(.95) translateY(16px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.modal-header{padding:24px 28px 16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:16px;position:sticky;top:0;background:var(--bg3);z-index:1}
+.modal-title{font-size:20px;font-weight:700;color:var(--text)}
+.modal-subtitle{font-size:13px;color:var(--text2);margin-top:4px}
+.modal-close{background:rgba(255,255,255,.07);border:1px solid var(--border);border-radius:8px;padding:6px 12px;color:var(--text2);cursor:pointer;font-size:18px;line-height:1;transition:.2s;flex-shrink:0}
+.modal-close:hover{background:rgba(255,255,255,.12);color:var(--text)}
+.modal-body{padding:24px 28px}
+.detail-section{margin-bottom:20px}
+.detail-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:600;margin-bottom:8px}
+.detail-content{background:var(--bg4);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:13px}
+.detail-content code{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--cyan)}
+.detail-content ul{list-style:none;padding:0}
+.detail-content ul li{padding:4px 0;color:var(--text2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.detail-content ul li:last-child{border-bottom:none}
+.detail-content ul li::before{content:'→';color:var(--primary);font-size:11px;flex-shrink:0}
+.tag-list{display:flex;flex-wrap:wrap;gap:6px}
+.tag{padding:4px 10px;border-radius:50px;font-size:11px;font-weight:600}
+.tag-blue{background:rgba(59,130,246,.15);color:var(--primary);border:1px solid rgba(59,130,246,.2)}
+.tag-green{background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.2)}
+.tag-orange{background:rgba(249,115,22,.15);color:var(--orange);border:1px solid rgba(249,115,22,.2)}
+.tag-purple{background:rgba(139,92,246,.15);color:var(--purple);border:1px solid rgba(139,92,246,.2)}
+.tag-yellow{background:rgba(245,158,11,.15);color:var(--yellow);border:1px solid rgba(245,158,11,.2)}
+.tag-red{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.tag-cyan{background:rgba(6,182,212,.15);color:var(--cyan);border:1px solid rgba(6,182,212,.2)}
+
+/* ===================== REQUEST FLOW ===================== */
+.flow-selector{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:28px}
+.flow-btn{padding:10px 20px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);color:var(--text2);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:.25s}
+.flow-btn:hover{border-color:var(--primary);color:var(--primary)}
+.flow-btn.active{border-color:var(--primary);background:rgba(59,130,246,.1);color:var(--primary)}
+
+.flow-diagram{display:none;animation:fadeIn .3s ease}
+.flow-diagram.active{display:block}
+.flow-step{display:flex;align-items:flex-start;gap:20px;margin-bottom:4px;position:relative}
+.flow-step-num{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;margin-top:2px}
+.flow-step-body{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px 18px;transition:.2s}
+.flow-step-body:hover{border-color:var(--primary);box-shadow:var(--glow-blue)}
+.flow-step-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px}
+.flow-step-desc{font-size:12px;color:var(--text2);line-height:1.6}
+.flow-step-tech{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.flow-connector{display:flex;align-items:center;padding:2px 0 2px 48px;gap:8px;margin-bottom:4px}
+.flow-connector .fc-line{width:2px;height:28px;background:var(--border2);margin-left:17px;position:relative}
+.flow-connector .fc-line::after{content:'▼';position:absolute;bottom:-8px;left:-5px;color:var(--border2);font-size:12px}
+.flow-connector .fc-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3);margin-left:28px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg)}
+
+/* ===================== KUBERNETES VIEW ===================== */
+.k8s-cluster{border:2px solid rgba(59,130,246,.3);border-radius:16px;padding:24px;background:rgba(59,130,246,.02)}
+.k8s-cluster-title{font-size:14px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.08em;margin-bottom:20px;display:flex;align-items:center;gap:8px}
+.k8s-namespace{border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;background:var(--bg2)}
+.k8s-ns-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.k8s-ns-label .ns-dot{width:8px;height:8px;border-radius:50%}
+.k8s-resources{display:flex;flex-wrap:wrap;gap:10px}
+.k8s-resource{border:1px solid var(--border);border-radius:8px;padding:10px 14px;background:var(--bg3);min-width:150px;transition:.2s}
+.k8s-resource:hover{border-color:var(--primary);box-shadow:var(--glow-blue)}
+.k8s-res-kind{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:4px}
+.k8s-res-name{font-size:13px;font-weight:600;color:var(--text)}
+.k8s-res-detail{font-size:11px;color:var(--text2);margin-top:3px;font-family:'JetBrains Mono',monospace}
+.k8s-res-probes{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
+.probe-chip{font-size:10px;padding:2px 7px;border-radius:50px;font-weight:600}
+.probe-live{background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.2)}
+.probe-ready{background:rgba(59,130,246,.15);color:var(--primary);border:1px solid rgba(59,130,246,.2)}
+.probe-startup{background:rgba(245,158,11,.15);color:var(--yellow);border:1px solid rgba(245,158,11,.2)}
+
+/* ===================== ISTIO VIEW ===================== */
+.istio-flow{display:flex;flex-direction:column;gap:0;max-width:700px;margin:0 auto}
+.istio-node{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px 20px;display:flex;align-items:center;gap:14px;transition:.2s;cursor:default}
+.istio-node:hover{border-color:var(--purple);box-shadow:var(--glow-purple)}
+.istio-node-icon{font-size:24px;width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.istio-node-body{flex:1}
+.istio-node-name{font-size:14px;font-weight:600;color:var(--text)}
+.istio-node-desc{font-size:12px;color:var(--text2);margin-top:2px}
+.istio-node-config{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3);margin-top:4px}
+.istio-arrow{text-align:center;padding:8px 0;color:var(--border2);font-size:20px;position:relative}
+.istio-arrow span{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3);display:block}
+
+/* Canary split */
+.canary-split{display:flex;gap:16px;margin:16px 0}
+.canary-branch{flex:1;border:1px solid var(--border);border-radius:10px;padding:16px;background:var(--bg3);transition:.2s}
+.canary-branch:hover{border-color:var(--green)}
+.canary-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.canary-weight{font-size:28px;font-weight:800;margin-bottom:4px}
+.canary-weight sup{font-size:14px;font-weight:500}
+.canary-detail{font-size:12px;color:var(--text2)}
+
+/* ===================== OBSERVABILITY VIEW ===================== */
+.obs-flow{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:16px;align-items:center;margin-bottom:24px}
+.obs-box{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:20px;text-align:center}
+.obs-box-icon{font-size:32px;margin-bottom:8px}
+.obs-box-name{font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px}
+.obs-box-detail{font-size:11px;color:var(--text2)}
+.obs-arrow{font-size:24px;color:var(--border2);text-align:center}
+
+/* ===================== EVIDENCE SECTION ===================== */
+.evidence-accordion{border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px}
+.evidence-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;cursor:pointer;background:var(--bg3);transition:.2s;user-select:none}
+.evidence-header:hover{background:var(--bg4)}
+.evidence-header h3{font-size:14px;font-weight:600;color:var(--text)}
+.evidence-chevron{color:var(--text3);transition:.3s;font-size:16px}
+.evidence-accordion.open .evidence-chevron{transform:rotate(180deg)}
+.evidence-body{display:none;padding:20px;background:var(--bg2);border-top:1px solid var(--border)}
+.evidence-accordion.open .evidence-body{display:block}
+.evidence-table{width:100%;border-collapse:collapse;font-size:13px}
+.evidence-table th{text-align:left;color:var(--text3);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:8px 12px;border-bottom:1px solid var(--border)}
+.evidence-table td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:top}
+.evidence-table td:first-child{color:var(--text);font-weight:500}
+.evidence-table tr:last-child td{border-bottom:none}
+.evidence-table code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);background:rgba(6,182,212,.08);padding:2px 6px;border-radius:4px}
+
+/* ===================== LEGEND ===================== */
+.legend-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.legend-item{display:flex;align-items:center;gap:12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 16px}
+.legend-line{height:3px;width:40px;border-radius:2px;flex-shrink:0}
+.legend-line.dashed{background:repeating-linear-gradient(90deg,currentColor 0,currentColor 4px,transparent 4px,transparent 8px);height:2px}
+.legend-info{flex:1}
+.legend-info strong{font-size:13px;color:var(--text);display:block}
+.legend-info span{font-size:11px;color:var(--text2)}
+
+/* ===================== TECH STACK ===================== */
+.tech-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
+.tech-card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:20px}
+.tech-card h3{font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.tech-list{display:flex;flex-direction:column;gap:8px}
+.tech-item{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg4);border:1px solid var(--border);border-radius:8px}
+.tech-item-name{font-size:13px;color:var(--text);font-weight:500}
+.tech-item-version{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text3)}
+
+/* ===================== UTILITIES ===================== */
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.mt-8{margin-top:8px}.mt-16{margin-top:16px}.mt-24{margin-top:24px}.mt-32{margin-top:32px}
+.gap-col{display:flex;flex-direction:column;gap:12px}
+.feign-arrow{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text3);font-family:'JetBrains Mono',monospace;padding:4px 0}
+.feign-arrow::before{content:'⟶';color:var(--orange);font-size:14px}
+code.inline{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--cyan);background:rgba(6,182,212,.08);padding:2px 7px;border-radius:4px}
+
+/* Scroll bar */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+@media(max-width:768px){
+  .section{padding:24px 20px}
+  .header{padding:24px 20px}
+  .obs-flow{grid-template-columns:1fr;text-align:center}
+  .obs-arrow{transform:rotate(90deg)}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-inner">
+    <div class="header-badge"><span class="dot"></span>Architecture Documentation v1.0</div>
+    <h1 class="main-title">Spring Boot Microservices<br/>Banking Application</h1>
+    <p class="subtitle">Complete System Architecture · Request Flows · Kubernetes · Istio Service Mesh · Observability</p>
+    <div class="header-meta">
+      <div class="meta-chip"><span class="icon">📅</span><span>Analyzed: <strong>2026-09-01</strong></span></div>
+      <div class="meta-chip"><span class="icon">🔬</span><span>Microservices: <strong>6</strong></span></div>
+      <div class="meta-chip"><span class="icon">☸️</span><span>K8s Namespaces: <strong>3</strong></span></div>
+      <div class="meta-chip"><span class="icon">🗄️</span><span>Databases: <strong>5 MySQL schemas</strong></span></div>
+      <div class="meta-chip"><span class="icon">🕸️</span><span>Istio: <strong>1.23.0</strong></span></div>
+      <div class="meta-chip"><span class="icon">☕</span><span>Spring Boot: <strong>2.7.15</strong></span></div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <!-- SUMMARY CARDS -->
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="sc-icon">🧩</div>
+      <div class="sc-value">6</div>
+      <div class="sc-label">Microservices</div>
+      <div class="sc-detail">API-GW · User · Account · Fund-Transfer · Transaction · Sequence</div>
+    </div>
+    <div class="summary-card">
+      <div class="sc-icon">🗄️</div>
+      <div class="sc-value">5</div>
+      <div class="sc-label">MySQL Schemas</div>
+      <div class="sc-detail">user_service · account_service · fund_transfer_service · transaction_service · sequence_generator</div>
+    </div>
+    <div class="summary-card">
+      <div class="sc-icon">☸️</div>
+      <div class="sc-value">3</div>
+      <div class="sc-label">K8s Namespaces</div>
+      <div class="sc-detail">banking · monitoring · istio-system</div>
+    </div>
+    <div class="summary-card">
+      <div class="sc-icon">🕸️</div>
+      <div class="sc-value">12</div>
+      <div class="sc-label">Istio Resources</div>
+      <div class="sc-detail">6 VirtualServices · 6 DestinationRules · 1 Gateway · 1 PeerAuthentication</div>
+    </div>
+    <div class="summary-card">
+      <div class="sc-icon">📊</div>
+      <div class="sc-value">5</div>
+      <div class="sc-label">Monitoring Tools</div>
+      <div class="sc-detail">Prometheus · Grafana · Loki · Jaeger · Kiali · Fluent-Bit · kube-state-metrics</div>
+    </div>
+    <div class="summary-card">
+      <div class="sc-icon">🔗</div>
+      <div class="sc-value">8</div>
+      <div class="sc-label">Feign Clients</div>
+      <div class="sc-detail">Account→User/Sequence/Transaction · Fund-Transfer→Account/Transaction · Transaction→Account · User→Account</div>
+    </div>
+    <div class="summary-card">
+      <div class="sc-icon">🔐</div>
+      <div class="sc-value">1</div>
+      <div class="sc-label">Auth Provider</div>
+      <div class="sc-detail">Keycloak (banking-service realm) · OAuth2 · JWT · mTLS STRICT</div>
+    </div>
+    <div class="summary-card">
+      <div class="sc-icon">🐳</div>
+      <div class="sc-value">JDK 17</div>
+      <div class="sc-label">Runtime</div>
+      <div class="sc-detail">eclipse-temurin:17-jdk · OTel Java Agent attached</div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tab-nav" role="tablist">
+    <button class="tab-btn active" onclick="showTab('overview')" role="tab"><span class="tb-icon">🏗️</span>Architecture</button>
+    <button class="tab-btn" onclick="showTab('flow')" role="tab"><span class="tb-icon">🔄</span>Request Flows</button>
+    <button class="tab-btn" onclick="showTab('k8s')" role="tab"><span class="tb-icon">☸️</span>Kubernetes</button>
+    <button class="tab-btn" onclick="showTab('istio')" role="tab"><span class="tb-icon">🕸️</span>Istio Mesh</button>
+    <button class="tab-btn" onclick="showTab('observability')" role="tab"><span class="tb-icon">📊</span>Observability</button>
+    <button class="tab-btn" onclick="showTab('tech')" role="tab"><span class="tb-icon">⚙️</span>Tech Stack</button>
+    <button class="tab-btn" onclick="showTab('evidence')" role="tab"><span class="tb-icon">🔍</span>Evidence</button>
+    <button class="tab-btn" onclick="showTab('legend')" role="tab"><span class="tb-icon">🗺️</span>Legend</button>
+  </div>
+
+  <!-- ===================== OVERVIEW TAB ===================== -->
+  <div id="tab-overview" class="tab-content active" style="padding-top:28px">
+    <div class="section-title">🏗️ Complete System Architecture</div>
+    <p class="section-subtitle">All components derived from actual repository files. Click any service node to view full details.</p>
+
+    <div class="arch-wrapper">
+
+      <!-- ZONE: EXTERNAL USERS -->
+      <div class="arch-zone zone-external">
+        <div class="arch-zone-title">🌐 <span>External Users / Clients</span><span class="zone-badge">INTERNET</span></div>
+        <div class="nodes-row">
+          <div class="node node-cyan">
+            <div class="node-icon">👤</div>
+            <div class="node-name">Web / Mobile Client</div>
+            <div class="node-port">HTTP/HTTPS</div>
+            <div class="node-tag">Consumer</div>
+          </div>
+          <div class="node node-cyan">
+            <div class="node-icon">🔧</div>
+            <div class="node-name">Postman / k6 Tests</div>
+            <div class="node-port">REST API</div>
+            <div class="node-tag">Testing</div>
+          </div>
+          <div class="node node-cyan">
+            <div class="node-icon">🔑</div>
+            <div class="node-name">Keycloak IdP</div>
+            <div class="node-port">:8571</div>
+            <div class="node-tag">OAuth2 Provider</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow-down">↓<span class="arrow-label">HTTP :30080 (NodePort) / :80 Istio</span></div>
+
+      <!-- ZONE: INGRESS -->
+      <div class="arch-zone zone-ingress">
+        <div class="arch-zone-title">🚪 <span>Ingress / Edge Layer</span><span class="zone-badge">istio-system</span></div>
+        <div class="nodes-row">
+          <div class="node node-yellow" onclick="showModal('istio-gw')">
+            <div class="node-icon">🌀</div>
+            <div class="node-name">Istio Ingress Gateway</div>
+            <div class="node-port">Port 80 → banking-gateway</div>
+            <div class="node-tag">Gateway</div>
+          </div>
+          <div class="node node-yellow" onclick="showModal('vs-api')">
+            <div class="node-icon">🔀</div>
+            <div class="node-name">VirtualService</div>
+            <div class="node-port">api-gateway-route</div>
+            <div class="node-tag">prefix: /</div>
+          </div>
+          <div class="node node-yellow" onclick="showModal('mtls')">
+            <div class="node-icon">🔒</div>
+            <div class="node-name">PeerAuthentication</div>
+            <div class="node-port">banking namespace</div>
+            <div class="node-tag">mTLS STRICT</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow-down">↓<span class="arrow-label">ISTIO_MUTUAL → api-gateway.banking.svc.cluster.local:8080</span></div>
+
+      <!-- ZONE: API GATEWAY -->
+      <div class="arch-zone zone-gateway">
+        <div class="arch-zone-title">🔗 <span>API Gateway</span><span class="zone-badge">banking namespace</span></div>
+        <div class="nodes-row">
+          <div class="node node-blue" onclick="showModal('api-gateway')">
+            <div class="node-icon">🌐</div>
+            <div class="node-name">API Gateway</div>
+            <div class="node-port">:8080 (NodePort 30080)</div>
+            <div class="node-tag">Spring Cloud Gateway</div>
+          </div>
+          <div class="node node-blue" onclick="showModal('keycloak-sec')">
+            <div class="node-icon">🔐</div>
+            <div class="node-name">SecurityConfig</div>
+            <div class="node-port">OAuth2 Resource Server</div>
+            <div class="node-tag">WebFlux Security</div>
+          </div>
+          <div class="node node-purple">
+            <div class="node-icon">📋</div>
+            <div class="node-name">Routes</div>
+            <div class="node-port">6 routes configured</div>
+            <div class="node-tag">lb:// load balanced</div>
+          </div>
+        </div>
+        <div class="mt-8" style="font-size:12px;color:var(--text2);padding:8px 4px">
+          <strong style="color:var(--text3)">Routes:</strong>
+          <code class="inline">/api/users/**</code> → user-service &nbsp;|&nbsp;
+          <code class="inline">/accounts/**</code> → account-service &nbsp;|&nbsp;
+          <code class="inline">/fund-transfers/**</code> → fund-transfer-service &nbsp;|&nbsp;
+          <code class="inline">/transactions/**</code> → transaction-service &nbsp;|&nbsp;
+          <code class="inline">/sequence/**</code> → sequence-generator
+        </div>
+      </div>
+
+      <div class="arrow-down">↓<span class="arrow-label">Feign/HTTP via Eureka lb:// — resolved to ClusterIP</span></div>
+
+      <!-- ZONE: SERVICE MESH -->
+      <div class="arch-zone zone-mesh">
+        <div class="arch-zone-title">🕸️ <span>Istio Service Mesh (Envoy Sidecars)</span><span class="zone-badge">banking namespace</span></div>
+        <div class="nodes-row">
+          <div class="node node-purple" onclick="showModal('dr-account')">
+            <div class="node-icon">⚖️</div>
+            <div class="node-name">DestinationRule</div>
+            <div class="node-port">account-service (v1/v2)</div>
+            <div class="node-tag">Canary 50/50</div>
+          </div>
+          <div class="node node-purple">
+            <div class="node-icon">⏱️</div>
+            <div class="node-name">Retry Policy</div>
+            <div class="node-port">2 attempts / 2s per-try</div>
+            <div class="node-tag">503 · connect-fail</div>
+          </div>
+          <div class="node node-purple">
+            <div class="node-icon">⏲️</div>
+            <div class="node-name">Timeout Config</div>
+            <div class="node-port">user 5s · ft 10s · seq 3s</div>
+            <div class="node-tag">VirtualServices</div>
+          </div>
+          <div class="node node-purple" onclick="showModal('outlier')">
+            <div class="node-icon">🚫</div>
+            <div class="node-name">Outlier Detection</div>
+            <div class="node-port">5 consecutive 5xx</div>
+            <div class="node-tag">30s ejection</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow-down">↓<span class="arrow-label">Routed to individual microservice pods</span></div>
+
+      <!-- ZONE: MICROSERVICES -->
+      <div class="arch-zone zone-services">
+        <div class="arch-zone-title">🧩 <span>Microservices Layer</span><span class="zone-badge">banking namespace</span></div>
+        <div class="nodes-row">
+          <div class="node node-green" onclick="showModal('user-service')">
+            <div class="node-icon">👤</div>
+            <div class="node-name">User Service</div>
+            <div class="node-port">:8082</div>
+            <div class="node-tag">user-service</div>
+          </div>
+          <div class="node node-green" onclick="showModal('account-service')">
+            <div class="node-icon">🏦</div>
+            <div class="node-name">Account Service</div>
+            <div class="node-port">:8081 (v1 / v2)</div>
+            <div class="node-tag">account-service</div>
+          </div>
+          <div class="node node-green" onclick="showModal('fund-transfer')">
+            <div class="node-icon">💸</div>
+            <div class="node-name">Fund-Transfer</div>
+            <div class="node-port">:8085</div>
+            <div class="node-tag">fund-transfer-service</div>
+          </div>
+          <div class="node node-green" onclick="showModal('transaction-service')">
+            <div class="node-icon">📒</div>
+            <div class="node-name">Transaction Service</div>
+            <div class="node-port">:8084</div>
+            <div class="node-tag">transaction-service</div>
+          </div>
+          <div class="node node-green" onclick="showModal('sequence-gen')">
+            <div class="node-icon">🔢</div>
+            <div class="node-name">Sequence Generator</div>
+            <div class="node-port">:8083</div>
+            <div class="node-tag">sequence-generator</div>
+          </div>
+          <div class="node node-blue" onclick="showModal('service-registry')">
+            <div class="node-icon">📡</div>
+            <div class="node-name">Service Registry</div>
+            <div class="node-port">:8761</div>
+            <div class="node-tag">Eureka Server</div>
+          </div>
+        </div>
+
+        <!-- Feign call map -->
+        <div class="mt-16" style="background:var(--bg4);border:1px solid var(--border);border-radius:8px;padding:14px 16px">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:10px">Feign Client Call Map</div>
+          <div class="gap-col" style="font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--text2)">
+            <div class="feign-arrow">Account-Service → user-service &nbsp;<span style="color:var(--text3)">(readUserById)</span></div>
+            <div class="feign-arrow">Account-Service → sequence-generator &nbsp;<span style="color:var(--text3)">(generateAccountNumber)</span></div>
+            <div class="feign-arrow">Account-Service → transaction-service &nbsp;<span style="color:var(--text3)">(getTransactionsFromAccountId)</span></div>
+            <div class="feign-arrow">Fund-Transfer → account-service &nbsp;<span style="color:var(--text3)">(readByAccountNumber, updateAccount)</span></div>
+            <div class="feign-arrow">Fund-Transfer → transaction-service &nbsp;<span style="color:var(--text3)">(makeTransaction, makeInternalTransactions)</span></div>
+            <div class="feign-arrow">Transaction-Service → account-service &nbsp;<span style="color:var(--text3)">(readByAccountNumber, updateAccount)</span></div>
+            <div class="feign-arrow">User-Service → account-service &nbsp;<span style="color:var(--text3)">(readByAccountNumber)</span></div>
+            <div class="feign-arrow">User-Service → Keycloak Admin API &nbsp;<span style="color:var(--text3)">(KeycloakService via REST)</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow-down">↓<span class="arrow-label">JDBC / MySQL (host.docker.internal:3306)</span></div>
+
+      <!-- ZONE: DATA -->
+      <div class="arch-zone zone-data">
+        <div class="arch-zone-title">🗄️ <span>Data Layer</span><span class="zone-badge">MySQL (external to K8s)</span></div>
+        <div class="nodes-row">
+          <div class="node node-orange" onclick="showModal('db-user')">
+            <div class="node-icon">🗄️</div>
+            <div class="node-name">user_service</div>
+            <div class="node-port">MySQL :3306</div>
+            <div class="node-tag">User Service DB</div>
+          </div>
+          <div class="node node-orange" onclick="showModal('db-account')">
+            <div class="node-icon">🗄️</div>
+            <div class="node-name">account_service</div>
+            <div class="node-port">MySQL :3306</div>
+            <div class="node-tag">Account Service DB</div>
+          </div>
+          <div class="node node-orange" onclick="showModal('db-fund')">
+            <div class="node-icon">🗄️</div>
+            <div class="node-name">fund_transfer_service</div>
+            <div class="node-port">MySQL :3306</div>
+            <div class="node-tag">Fund-Transfer DB</div>
+          </div>
+          <div class="node node-orange" onclick="showModal('db-txn')">
+            <div class="node-icon">🗄️</div>
+            <div class="node-name">transaction_service</div>
+            <div class="node-port">MySQL :3306</div>
+            <div class="node-tag">Transaction DB</div>
+          </div>
+          <div class="node node-orange" onclick="showModal('db-seq')">
+            <div class="node-icon">🗄️</div>
+            <div class="node-name">sequence_generator</div>
+            <div class="node-port">MySQL :3306</div>
+            <div class="node-tag">Sequence DB</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow-down">↓<span class="arrow-label">Metrics: /actuator/prometheus scraped by Prometheus</span></div>
+
+      <!-- ZONE: MONITORING -->
+      <div class="arch-zone zone-monitoring">
+        <div class="arch-zone-title">📊 <span>Observability Stack</span><span class="zone-badge">monitoring namespace</span></div>
+        <div class="nodes-row">
+          <div class="node node-pink" onclick="showModal('prometheus')">
+            <div class="node-icon">🔴</div>
+            <div class="node-name">Prometheus</div>
+            <div class="node-port">:9090</div>
+            <div class="node-tag">prom/prometheus:v2.45.0</div>
+          </div>
+          <div class="node node-pink" onclick="showModal('grafana')">
+            <div class="node-icon">📈</div>
+            <div class="node-name">Grafana</div>
+            <div class="node-port">:3000</div>
+            <div class="node-tag">grafana/grafana:10.1.1</div>
+          </div>
+          <div class="node node-pink" onclick="showModal('loki')">
+            <div class="node-icon">📋</div>
+            <div class="node-name">Loki</div>
+            <div class="node-port">:3100</div>
+            <div class="node-tag">grafana/loki:2.9.2</div>
+          </div>
+          <div class="node node-pink" onclick="showModal('fluent-bit')">
+            <div class="node-icon">🪄</div>
+            <div class="node-name">Fluent Bit</div>
+            <div class="node-port">DaemonSet</div>
+            <div class="node-tag">fluent-bit:2.2.0</div>
+          </div>
+          <div class="node node-pink" onclick="showModal('jaeger')">
+            <div class="node-icon">🔍</div>
+            <div class="node-name">Jaeger</div>
+            <div class="node-port">UI:16686 · Zipkin:9411</div>
+            <div class="node-tag">jaeger:1.47</div>
+          </div>
+          <div class="node node-purple" onclick="showModal('kiali')">
+            <div class="node-icon">🗺️</div>
+            <div class="node-name">Kiali</div>
+            <div class="node-port">:20001 (istio-system)</div>
+            <div class="node-tag">kiali:v1.87</div>
+          </div>
+          <div class="node node-purple">
+            <div class="node-icon">📦</div>
+            <div class="node-name">kube-state-metrics</div>
+            <div class="node-port">:8080</div>
+            <div class="node-tag">v2.9.2</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end arch-wrapper -->
+  </div>
+
+  <!-- ===================== REQUEST FLOW TAB ===================== -->
+  <div id="tab-flow" class="tab-content" style="padding-top:28px">
+    <div class="section-title">🔄 End-to-End Request Flows</div>
+    <p class="section-subtitle">All flows derived from actual controller, Feign client, and service implementation code.</p>
+
+    <div class="flow-selector">
+      <button class="flow-btn active" onclick="showFlow('flow-register')">👤 User Registration</button>
+      <button class="flow-btn" onclick="showFlow('flow-account-create')">🏦 Account Creation</button>
+      <button class="flow-btn" onclick="showFlow('flow-fund-transfer')">💸 Fund Transfer</button>
+      <button class="flow-btn" onclick="showFlow('flow-get-account')">🔎 Get Account</button>
+      <button class="flow-btn" onclick="showFlow('flow-keycloak-auth')">🔐 Auth Flow</button>
+    </div>
+
+    <!-- FLOW 1: User Registration -->
+    <div id="flow-register" class="flow-diagram active">
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:24px">
+        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px">👤 User Registration Flow</div>
+        <div style="font-size:13px;color:var(--text2)">
+          <strong>POST</strong> <code class="inline">/api/users/register</code> — This is the <strong>only public endpoint</strong> (permitAll). All others require a valid JWT.
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(6,182,212,.15);color:var(--cyan)">1</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">Client sends POST /api/users/register</div>
+          <div class="flow-step-desc">JSON body: { firstName, lastName, emailId, password, contactNumber }. This path is explicitly permitAll() in SecurityConfig.</div>
+          <div class="flow-step-tech"><span class="tag tag-blue">HTTP POST</span><span class="tag tag-cyan">No Auth Required</span></div>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="fc-line"></div><div class="fc-label">HTTP :30080 (NodePort)</div></div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(245,158,11,.15);color:var(--yellow)">2</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">Istio Ingress Gateway → banking-gateway</div>
+          <div class="flow-step-desc">Request enters istio-ingressgateway on port 80. VirtualService api-gateway-route routes all prefix "/" to api-gateway.banking.svc.cluster.local:8080.</div>
+          <div class="flow-step-tech"><span class="tag tag-purple">Istio Gateway</span><span class="tag tag-purple">VirtualService</span><span class="tag tag-yellow">timeout: 15s</span></div>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="fc-line"></div><div class="fc-label">ISTIO_MUTUAL mTLS</div></div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(59,130,246,.15);color:var(--primary)">3</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">API Gateway receives request</div>
+          <div class="flow-step-desc">SecurityConfig.securityWebFilterChain checks: path matches /api/users/register → permitAll(). OAuth2 resource server JWT validation is SKIPPED for this path. Spring Cloud Gateway routes to lb://user-service via Eureka.</div>
+          <div class="flow-step-tech"><span class="tag tag-blue">Spring Cloud Gateway</span><span class="tag tag-green">permitAll()</span><span class="tag tag-orange">Eureka lb://</span></div>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="fc-line"></div><div class="fc-label">HTTP via Eureka load balancer</div></div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(16,185,129,.15);color:var(--green)">4</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">User Service — UserController.createUser()</div>
+          <div class="flow-step-desc">UserServiceImpl.createUser() is invoked. It first calls keycloakService.readUserByEmail() to check for duplicates. If unique, creates a Keycloak UserRepresentation and calls keycloakService.createUser().</div>
+          <div class="flow-step-tech"><span class="tag tag-green">UserController :8082</span><span class="tag tag-purple">KeycloakService</span></div>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="fc-line"></div><div class="fc-label">Keycloak Admin REST API → http://host.docker.internal:8571</div></div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(139,92,246,.15);color:var(--purple)">5</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">Keycloak creates user in banking-service realm</div>
+          <div class="flow-step-desc">Keycloak returns HTTP 201. User Service then reads back the user from Keycloak to get the assigned auth ID. Saves User entity to MySQL user_service DB with status PENDING.</div>
+          <div class="flow-step-tech"><span class="tag tag-red">Keycloak :8571</span><span class="tag tag-orange">MySQL user_service</span></div>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="fc-line"></div><div class="fc-label">JPA / Hibernate → user_service schema</div></div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(16,185,129,.15);color:var(--green)">6</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">Response returns to client</div>
+          <div class="flow-step-desc">Response { responseCode: "200", responseMessage: "User created successfully" } returned through the gateway back to client.</div>
+          <div class="flow-step-tech"><span class="tag tag-green">HTTP 200 OK</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FLOW 2: Account Creation -->
+    <div id="flow-account-create" class="flow-diagram">
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:24px">
+        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px">🏦 Account Creation Flow</div>
+        <div style="font-size:13px;color:var(--text2)"><strong>POST</strong> <code class="inline">/accounts</code> — Requires valid JWT. Creates account with auto-generated account number.</div>
+      </div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(6,182,212,.15);color:var(--cyan)">1</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">Client sends POST /accounts with JWT Bearer token</div>
+          <div class="flow-step-desc">Body: { userId, accountType }. Requires valid JWT issued by Keycloak banking-service realm.</div>
+          <div class="flow-step-tech"><span class="tag tag-blue">HTTP POST</span><span class="tag tag-red">JWT Required</span></div>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="fc-line"></div><div class="fc-label">NodePort :30080</div></div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(245,158,11,.15);color:var(--yellow)">2</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">Istio Gateway + VirtualService</div>
+          <div class="flow-step-desc">Routes to API Gateway. PeerAuthentication enforces mTLS STRICT between all pods in banking namespace.</div>
+          <div class="flow-step-tech"><span class="tag tag-purple">mTLS STRICT</span></div>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="fc-line"></div><div class="fc-label">mTLS encrypted</div></div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(59,130,246,.15);color:var(--primary)">3</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">API Gateway validates JWT</div>
+          <div class="flow-step-desc">anyExchange().authenticated() triggers JWT validation against Keycloak JWK Set URI. Valid token → routed to lb://account-service via Eureka.</div>
+          <div class="flow-step-tech"><span class="tag tag-red">OAuth2 ResourceServer</span><span class="tag tag-blue">jwk-set-uri validation</span></div>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="fc-line"></div><div class="fc-label">Feign Eureka lb:// to account-service</div></div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(16,185,129,.15);color:var(--green)">4</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">Account Service — AccountController.createAccount()</div>
+          <div class="flow-step-desc">AccountServiceImpl.createAccount() verifies user exists via Feign → UserService.readUserById(). Checks no existing account with same userId+accountType.</div>
+          <div class="flow-step-tech"><span class="tag tag-green">AccountController :8081</span><span class="tag tag-orange">Feign → user-service</span></div>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="fc-line"></div><div class="fc-label">Feign → sequence-generator</div></div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(16,185,129,.15);color:var(--green)">5</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">Sequence Generator called via Feign</div>
+          <div class="flow-step-desc">Account Service calls SequenceService Feign → POST /sequence. Sequence Generator increments counter in sequence_generator MySQL DB, returns new number. Account number = "ACC" + zero-padded 7-digit number.</div>
+          <div class="flow-step-tech"><span class="tag tag-green">SequenceController :8083</span><span class="tag tag-orange">MySQL sequence_generator</span></div>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="fc-line"></div><div class="fc-label">JDBC → account_service schema</div></div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(249,115,22,.15);color:var(--orange)">6</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">Account persisted to MySQL</div>
+          <div class="flow-step-desc">Account saved with status=PENDING, availableBalance=0. Response: { responseCode: "200", message: "Account created successfully" }</div>
+          <div class="flow-step-tech"><span class="tag tag-orange">MySQL account_service</span><span class="tag tag-green">HTTP 201</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FLOW 3: Fund Transfer -->
+    <div id="flow-fund-transfer" class="flow-diagram">
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:24px">
+        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px">💸 Fund Transfer Flow</div>
+        <div style="font-size:13px;color:var(--text2)"><strong>POST</strong> <code class="inline">/fund-transfers</code> — Most complex flow: involves 4 services, 4 DB operations.</div>
+      </div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(6,182,212,.15);color:var(--cyan)">1</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">Client sends POST /fund-transfers</div>
+          <div class="flow-step-desc">Body: { fromAccount, toAccount, amount }. JWT bearer token required.</div>
+          <div class="flow-step-tech"><span class="tag tag-blue">HTTP POST</span><span class="tag tag-red">JWT Required</span></div>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="fc-line"></div><div class="fc-label">NodePort :30080 → Istio → API Gateway :8080</div></div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(59,130,246,.15);color:var(--primary)">2</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">API Gateway routes to Fund-Transfer Service</div>
+          <div class="flow-step-desc">Route lb://fund-transfer-service matches /fund-transfers/**. Istio VirtualService fund-transfer-route applies timeout:10s for POST requests.</div>
+          <div class="flow-step-tech"><span class="tag tag-blue">API Gateway</span><span class="tag tag-purple">VirtualService timeout:10s</span></div>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="fc-line"></div><div class="fc-label">Feign → account-service (read fromAccount)</div></div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(16,185,129,.15);color:var(--green)">3</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">Fund-Transfer validates fromAccount</div>
+          <div class="flow-step-desc">FundTransferServiceImpl calls AccountService Feign → GET /accounts?accountNumber=XXX. Validates account exists, status=ACTIVE, and sufficient balance.</div>
+          <div class="flow-step-tech"><span class="tag tag-green">FundTransferController :8085</span><span class="tag tag-orange">Feign → account-service</span></div>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="fc-line"></div><div class="fc-label">Feign → account-service (read toAccount)</div></div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(16,185,129,.15);color:var(--green)">4</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">Fund-Transfer validates toAccount</div>
+          <div class="flow-step-desc">Second Feign call to AccountService → GET /accounts?accountNumber=YYY. Validates toAccount exists.</div>
+          <div class="flow-step-tech"><span class="tag tag-orange">Feign → account-service</span></div>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="fc-line"></div><div class="fc-label">Feign → account-service (update balances)</div></div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(16,185,129,.15);color:var(--green)">5</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">internalTransfer() — Balance updates</div>
+          <div class="flow-step-desc">fromAccount.balance -= amount → PUT /accounts (Feign). toAccount.balance += amount → PUT /accounts (Feign). Both accounts updated atomically in account_service DB.</div>
+          <div class="flow-step-tech"><span class="tag tag-orange">2× Feign PUT → account-service</span><span class="tag tag-orange">MySQL account_service</span></div>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="fc-line"></div><div class="fc-label">Feign → transaction-service (record both transactions)</div></div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(16,185,129,.15);color:var(--green)">6</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">Transaction Service records ledger entries</div>
+          <div class="flow-step-desc">POST /transactions/internal with list of 2 TransactionDto objects + transactionReference (UUID). Debit entry for fromAccount, credit entry for toAccount. Both saved to transaction_service DB.</div>
+          <div class="flow-step-tech"><span class="tag tag-green">TransactionController :8084</span><span class="tag tag-orange">MySQL transaction_service</span></div>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="fc-line"></div><div class="fc-label">JDBC → fund_transfer_service schema</div></div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(249,115,22,.15);color:var(--orange)">7</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">FundTransfer record persisted</div>
+          <div class="flow-step-desc">FundTransfer entity saved with transactionReference (UUID), status=SUCCESS, fromAccount, toAccount, amount, transferType=INTERNAL.</div>
+          <div class="flow-step-tech"><span class="tag tag-orange">MySQL fund_transfer_service</span><span class="tag tag-green">HTTP 201</span></div>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="fc-line"></div><div class="fc-label">Response to client</div></div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(16,185,129,.15);color:var(--green)">8</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">Response returned to client</div>
+          <div class="flow-step-desc">{ transactionId: "&lt;UUID&gt;", message: "Fund transfer was successful" } — HTTP 201 Created.</div>
+          <div class="flow-step-tech"><span class="tag tag-green">HTTP 201</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FLOW 4: Get Account -->
+    <div id="flow-get-account" class="flow-diagram">
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:24px">
+        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px">🔎 Get Account by Account Number</div>
+        <div style="font-size:13px;color:var(--text2)"><strong>GET</strong> <code class="inline">/accounts?accountNumber=XXX</code> — Read-only flow, subject to Istio canary splitting.</div>
+      </div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(6,182,212,.15);color:var(--cyan)">1</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">GET /accounts?accountNumber=ACC0000001</div>
+          <div class="flow-step-desc">JWT required. Routed by API Gateway → lb://account-service → Eureka resolves to pod IP.</div>
+          <div class="flow-step-tech"><span class="tag tag-blue">HTTP GET</span><span class="tag tag-red">JWT Required</span></div>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="fc-line"></div><div class="fc-label">Istio VirtualService account-service-route</div></div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(139,92,246,.15);color:var(--purple)">2</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">Istio Canary Traffic Split (GET requests)</div>
+          <div class="flow-step-desc">VirtualService account-service-route for GET method: 50% → v1 (account-service stable), 50% → v2 (account-service-v2 canary). Both deployments serve the same account_service MySQL schema.</div>
+          <div class="flow-step-tech"><span class="tag tag-purple">Canary 50/50 Split</span><span class="tag tag-green">v1 stable</span><span class="tag tag-yellow">v2 canary</span></div>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="fc-line"></div><div class="fc-label">JDBC → account_service</div></div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(16,185,129,.15);color:var(--green)">3</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">AccountServiceImpl.readAccountByAccountNumber()</div>
+          <div class="flow-step-desc">Queries AccountRepository.findAccountByAccountNumber(). Returns AccountDto with accountType, accountStatus, availableBalance.</div>
+          <div class="flow-step-tech"><span class="tag tag-orange">MySQL account_service</span><span class="tag tag-green">HTTP 200</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FLOW 5: Keycloak Auth -->
+    <div id="flow-keycloak-auth" class="flow-diagram">
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:24px">
+        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px">🔐 Authentication Flow</div>
+        <div style="font-size:13px;color:var(--text2)">OAuth2 Authorization Code flow through Keycloak for all protected endpoints.</div>
+      </div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(239,68,68,.15);color:var(--red)">1</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">Client sends request without valid token</div>
+          <div class="flow-step-desc">API Gateway SecurityConfig: anyExchange().authenticated() — gateway redirects to Keycloak authorization endpoint.</div>
+          <div class="flow-step-tech"><span class="tag tag-red">Unauthenticated</span><span class="tag tag-blue">oauth2Login()</span></div>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="fc-line"></div><div class="fc-label">Redirect → Keycloak auth endpoint</div></div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(139,92,246,.15);color:var(--purple)">2</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">Keycloak — banking-service realm</div>
+          <div class="flow-step-desc">Keycloak at http://host.docker.internal:8571. Client: banking-service-client (API Gateway), banking-service-api-client (User Service admin). Realm: banking-service. User logs in, Keycloak issues authorization code.</div>
+          <div class="flow-step-tech"><span class="tag tag-red">Keycloak :8571</span><span class="tag tag-purple">banking-service realm</span></div>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="fc-line"></div><div class="fc-label">Auth code → token exchange</div></div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(59,130,246,.15);color:var(--primary)">3</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">API Gateway exchanges code for JWT</div>
+          <div class="flow-step-desc">Token endpoint: /realms/banking-service/protocol/openid-connect/token. JWT validated via JWK Set URI: /realms/banking-service/protocol/openid-connect/certs.</div>
+          <div class="flow-step-tech"><span class="tag tag-blue">JWT RS256</span><span class="tag tag-green">openid scope</span></div>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="fc-line"></div><div class="fc-label">JWT in Authorization: Bearer header</div></div>
+
+      <div class="flow-step">
+        <div class="flow-step-num" style="background:rgba(16,185,129,.15);color:var(--green)">4</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">Protected API access granted</div>
+          <div class="flow-step-desc">Client includes JWT in all subsequent requests. API Gateway validates JWT on every request. User status must be APPROVED in Keycloak (enabled=true) for tokens to work.</div>
+          <div class="flow-step-tech"><span class="tag tag-green">Authenticated</span><span class="tag tag-blue">All endpoints accessible</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end flow tab -->
+
+  <!-- ===================== KUBERNETES TAB ===================== -->
+  <div id="tab-k8s" class="tab-content" style="padding-top:28px">
+    <div class="section-title">☸️ Kubernetes Architecture</div>
+    <p class="section-subtitle">All resources from actual YAML manifests in k8s/ directory.</p>
+
+    <div class="k8s-cluster">
+      <div class="k8s-cluster-title">☸️ Kubernetes Cluster (Docker Desktop / local)</div>
+
+      <!-- banking namespace -->
+      <div class="k8s-namespace">
+        <div class="k8s-ns-label"><span class="ns-dot" style="background:var(--primary)"></span>banking namespace — application workloads</div>
+        <div class="k8s-resources">
+
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">Deployment</div>
+            <div class="k8s-res-name">api-gateway</div>
+            <div class="k8s-res-detail">replicas: 1 · image: banking/api-gateway:latest · :8080</div>
+            <div class="k8s-res-probes"><span class="probe-chip probe-ready">Readiness</span><span class="probe-chip probe-live">Liveness</span></div>
+          </div>
+
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">Deployment</div>
+            <div class="k8s-res-name">user-service</div>
+            <div class="k8s-res-detail">replicas: 1 · :8082 · CPU 100m-500m · Mem 256-512Mi</div>
+            <div class="k8s-res-probes"><span class="probe-chip probe-ready">Readiness</span><span class="probe-chip probe-live">Liveness</span></div>
+          </div>
+
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">Deployment (v1)</div>
+            <div class="k8s-res-name">account-service</div>
+            <div class="k8s-res-detail">replicas: 1 · version: v1 · :8081 · image: :latest</div>
+            <div class="k8s-res-probes"><span class="probe-chip probe-ready">Readiness</span><span class="probe-chip probe-live">Liveness</span><span class="probe-chip probe-startup">Startup (f:40)</span></div>
+          </div>
+
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">Deployment (v2)</div>
+            <div class="k8s-res-name">account-service-v2</div>
+            <div class="k8s-res-detail">replicas: 1 · version: v2 · :8081 · image: :v2</div>
+            <div class="k8s-res-probes"><span class="probe-chip probe-ready">Readiness</span><span class="probe-chip probe-live">Liveness</span><span class="probe-chip probe-startup">Startup (f:40)</span></div>
+          </div>
+
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">Deployment</div>
+            <div class="k8s-res-name">fund-transfer</div>
+            <div class="k8s-res-detail">replicas: 1 · :8085 · CPU 100m-500m · Mem 256-512Mi</div>
+            <div class="k8s-res-probes"><span class="probe-chip probe-ready">Readiness</span><span class="probe-chip probe-live">Liveness</span></div>
+          </div>
+
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">Deployment</div>
+            <div class="k8s-res-name">transaction-service</div>
+            <div class="k8s-res-detail">replicas: 1 · :8084 · CPU 100m-500m · Mem 256-512Mi</div>
+            <div class="k8s-res-probes"><span class="probe-chip probe-ready">Readiness</span><span class="probe-chip probe-live">Liveness</span></div>
+          </div>
+
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">Deployment</div>
+            <div class="k8s-res-name">sequence-generator</div>
+            <div class="k8s-res-detail">replicas: 1 · :8083 · CPU 100m-500m · Mem 128-256Mi</div>
+            <div class="k8s-res-probes"><span class="probe-chip probe-ready">Readiness</span><span class="probe-chip probe-live">Liveness</span></div>
+          </div>
+
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">Deployment</div>
+            <div class="k8s-res-name">service-registry</div>
+            <div class="k8s-res-detail">replicas: 1 · :8761 · Eureka Server · Mem 128-256Mi</div>
+            <div class="k8s-res-probes"><span class="probe-chip probe-ready">Readiness</span><span class="probe-chip probe-live">Liveness</span></div>
+          </div>
+
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">Service (NodePort)</div>
+            <div class="k8s-res-name">api-gateway</div>
+            <div class="k8s-res-detail">port: 8080 · nodePort: 30080</div>
+          </div>
+
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">Service (ClusterIP)</div>
+            <div class="k8s-res-name">user-service</div>
+            <div class="k8s-res-detail">port: 8082 · ClusterIP</div>
+          </div>
+
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">Service (ClusterIP)</div>
+            <div class="k8s-res-name">account-service</div>
+            <div class="k8s-res-detail">port: 8081 · selects both v1 + v2 pods</div>
+          </div>
+
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">HPA</div>
+            <div class="k8s-res-name">user-service-hpa</div>
+            <div class="k8s-res-detail">min: 1 · max: 2 · CPU target: 70%</div>
+          </div>
+
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">ConfigMap</div>
+            <div class="k8s-res-name">banking-config</div>
+            <div class="k8s-res-detail">EUREKA_URL · MYSQL_HOST · KEYCLOAK_URL</div>
+          </div>
+
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">Secret</div>
+            <div class="k8s-res-name">banking-secret</div>
+            <div class="k8s-res-detail">mysql-username · mysql-password · keycloak secrets</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- monitoring namespace -->
+      <div class="k8s-namespace">
+        <div class="k8s-ns-label"><span class="ns-dot" style="background:var(--pink)"></span>monitoring namespace — observability stack</div>
+        <div class="k8s-resources">
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">Deployment</div>
+            <div class="k8s-res-name">prometheus</div>
+            <div class="k8s-res-detail">prom/prometheus:v2.45.0 · :9090 · scrape_interval: 15s</div>
+          </div>
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">Deployment</div>
+            <div class="k8s-res-name">grafana</div>
+            <div class="k8s-res-detail">grafana/grafana:10.1.1 · :3000</div>
+          </div>
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">Deployment</div>
+            <div class="k8s-res-name">loki</div>
+            <div class="k8s-res-detail">grafana/loki:2.9.2 · :3100 · Mem 256-768Mi</div>
+          </div>
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">DaemonSet</div>
+            <div class="k8s-res-name">fluent-bit</div>
+            <div class="k8s-res-detail">cr.fluentbit.io/fluent/fluent-bit:2.2.0 · All nodes · reads /var/log/containers/*_banking_*.log</div>
+          </div>
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">Deployment</div>
+            <div class="k8s-res-name">jaeger</div>
+            <div class="k8s-res-detail">jaegertracing/all-in-one:1.47 · UI:16686 · Zipkin:9411</div>
+          </div>
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">Deployment</div>
+            <div class="k8s-res-name">kube-state-metrics</div>
+            <div class="k8s-res-detail">kube-state-metrics:v2.9.2 · :8080</div>
+          </div>
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">ConfigMap</div>
+            <div class="k8s-res-name">prometheus-config</div>
+            <div class="k8s-res-detail">Scrapes banking namespace pods via annotations</div>
+          </div>
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">ConfigMap</div>
+            <div class="k8s-res-name">loki-config</div>
+            <div class="k8s-res-detail">query_timeout:120s · max_outstanding:256 · split:15m</div>
+          </div>
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">RBAC</div>
+            <div class="k8s-res-name">prometheus SA + ClusterRole</div>
+            <div class="k8s-res-detail">get/list/watch: nodes, pods, services, endpoints</div>
+          </div>
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">RBAC</div>
+            <div class="k8s-res-name">fluent-bit SA + ClusterRole</div>
+            <div class="k8s-res-detail">get/list/watch: namespaces, pods</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- istio-system namespace -->
+      <div class="k8s-namespace">
+        <div class="k8s-ns-label"><span class="ns-dot" style="background:var(--purple)"></span>istio-system namespace — service mesh control plane</div>
+        <div class="k8s-resources">
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">Deployment (Istio)</div>
+            <div class="k8s-res-name">istiod</div>
+            <div class="k8s-res-detail">Control plane · svc:15012 · Istio 1.23.0</div>
+          </div>
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">Deployment (Istio)</div>
+            <div class="k8s-res-name">istio-ingressgateway</div>
+            <div class="k8s-res-detail">Ingress Gateway · port 80 → banking namespace</div>
+          </div>
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">Deployment</div>
+            <div class="k8s-res-name">kiali</div>
+            <div class="k8s-res-detail">kiali:v1.87 · :20001 · connects to Prometheus + Jaeger + Grafana</div>
+          </div>
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">ConfigMap</div>
+            <div class="k8s-res-name">istio (mesh config)</div>
+            <div class="k8s-res-detail">defaultProvider: prometheus + jaeger · enablePrometheusMerge: true · trustDomain: cluster.local</div>
+          </div>
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">Telemetry</div>
+            <div class="k8s-res-name">mesh-default</div>
+            <div class="k8s-res-detail">provider: jaeger · randomSamplingPercentage: 100.0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Istio CRDs in banking namespace -->
+      <div class="k8s-namespace">
+        <div class="k8s-ns-label"><span class="ns-dot" style="background:var(--yellow)"></span>banking namespace — Istio CRDs</div>
+        <div class="k8s-resources">
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">Gateway</div>
+            <div class="k8s-res-name">banking-gateway</div>
+            <div class="k8s-res-detail">selector: istio:ingressgateway · port 80 HTTP · hosts: *</div>
+          </div>
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">VirtualService</div>
+            <div class="k8s-res-name">api-gateway-route</div>
+            <div class="k8s-res-detail">prefix:/ → api-gateway:8080 · timeout: 15s</div>
+          </div>
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">VirtualService</div>
+            <div class="k8s-res-name">user-service-route</div>
+            <div class="k8s-res-detail">GET: timeout 5s, retry 2x · POST: timeout 5s</div>
+          </div>
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">VirtualService</div>
+            <div class="k8s-res-name">account-service-route</div>
+            <div class="k8s-res-detail">GET: v1:50% / v2:50% · ALL: v1:50% / v2:50%</div>
+          </div>
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">VirtualService</div>
+            <div class="k8s-res-name">fund-transfer-route</div>
+            <div class="k8s-res-detail">GET: timeout 5s retry · POST: timeout 10s</div>
+          </div>
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">VirtualService</div>
+            <div class="k8s-res-name">transaction-service-route</div>
+            <div class="k8s-res-detail">GET: timeout 5s retry · POST: timeout 10s</div>
+          </div>
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">VirtualService</div>
+            <div class="k8s-res-name">sequence-generator-route</div>
+            <div class="k8s-res-detail">timeout: 3s (fastest timeout)</div>
+          </div>
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">DestinationRule</div>
+            <div class="k8s-res-name">account-service-dest</div>
+            <div class="k8s-res-detail">subsets: v1 / v2 · outlierDetection: 5 errors / 10s / 30s eject</div>
+          </div>
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">DestinationRule (×5)</div>
+            <div class="k8s-res-name">other services</div>
+            <div class="k8s-res-detail">ISTIO_MUTUAL tls · ROUND_ROBIN lb (user) · outlierDetection on all</div>
+          </div>
+          <div class="k8s-resource">
+            <div class="k8s-res-kind">PeerAuthentication</div>
+            <div class="k8s-res-name">default</div>
+            <div class="k8s-res-detail">banking namespace · mtls.mode: STRICT</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- k8s-cluster -->
+  </div><!-- k8s tab -->
+
+  <!-- ===================== ISTIO TAB ===================== -->
+  <div id="tab-istio" class="tab-content" style="padding-top:28px">
+    <div class="section-title">🕸️ Istio Service Mesh</div>
+    <p class="section-subtitle">Actual Istio 1.23.0 configuration from k8s/istio-*.yaml and k8s/monitoring/istio-*.yaml.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;flex-wrap:wrap">
+
+      <!-- Traffic Path -->
+      <div>
+        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:16px">Standard Traffic Path</div>
+        <div class="istio-flow">
+          <div class="istio-node">
+            <div class="istio-node-icon" style="background:rgba(6,182,212,.15)">🌐</div>
+            <div class="istio-node-body">
+              <div class="istio-node-name">Client / External</div>
+              <div class="istio-node-desc">HTTP :30080 NodePort or :80 via Istio Ingress</div>
+            </div>
+          </div>
+          <div class="istio-arrow">↓<span>banking-gateway · port 80 · HTTP · hosts: *</span></div>
+          <div class="istio-node">
+            <div class="istio-node-icon" style="background:rgba(245,158,11,.15)">🌀</div>
+            <div class="istio-node-body">
+              <div class="istio-node-name">Istio Ingress Gateway</div>
+              <div class="istio-node-desc">istio-ingressgateway in istio-system</div>
+              <div class="istio-node-config">selector: istio:ingressgateway</div>
+            </div>
+          </div>
+          <div class="istio-arrow">↓<span>VirtualService api-gateway-route — prefix:/ — timeout: 15s</span></div>
+          <div class="istio-node">
+            <div class="istio-node-icon" style="background:rgba(59,130,246,.15)">🔀</div>
+            <div class="istio-node-body">
+              <div class="istio-node-name">Envoy Proxy (ingressgateway)</div>
+              <div class="istio-node-desc">Routes to api-gateway.banking.svc.cluster.local:8080</div>
+              <div class="istio-node-config">DestinationRule: ISTIO_MUTUAL · outlierDetection: 5 errors/10s</div>
+            </div>
+          </div>
+          <div class="istio-arrow">↓<span>mTLS encrypted tunnel (PeerAuthentication STRICT)</span></div>
+          <div class="istio-node">
+            <div class="istio-node-icon" style="background:rgba(16,185,129,.15)">🌐</div>
+            <div class="istio-node-body">
+              <div class="istio-node-name">API Gateway Pod</div>
+              <div class="istio-node-desc">Envoy sidecar injected · Spring Cloud Gateway</div>
+              <div class="istio-node-config">port: 8080 · OTEL propagators: b3multi,tracecontext</div>
+            </div>
+          </div>
+          <div class="istio-arrow">↓<span>Feign → Eureka lb:// → resolved to pod ClusterIP</span></div>
+          <div class="istio-node">
+            <div class="istio-node-icon" style="background:rgba(16,185,129,.15)">🧩</div>
+            <div class="istio-node-body">
+              <div class="istio-node-name">Target Microservice Pod</div>
+              <div class="istio-node-desc">Envoy sidecar intercepts all traffic in/out</div>
+              <div class="istio-node-config">VirtualService + DestinationRule applied per service</div>
+            </div>
+          </div>
+          <div class="istio-arrow">↓<span>JDBC over host.docker.internal (external MySQL)</span></div>
+          <div class="istio-node">
+            <div class="istio-node-icon" style="background:rgba(249,115,22,.15)">🗄️</div>
+            <div class="istio-node-body">
+              <div class="istio-node-name">MySQL Database</div>
+              <div class="istio-node-desc">External to cluster — host.docker.internal:3306</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Canary + Config details -->
+      <div>
+        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:16px">Account-Service Canary Deployment</div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:12px">VirtualService <code class="inline">account-service-route</code> — GET method routing:</div>
+          <div class="canary-split">
+            <div class="canary-branch">
+              <div class="canary-label" style="color:var(--green)">🟢 Stable</div>
+              <div class="canary-weight" style="color:var(--green)">50<sup>%</sup></div>
+              <div class="canary-detail">subset: v1<br/>image: :latest<br/>Deployment: account-service</div>
+            </div>
+            <div class="canary-branch">
+              <div class="canary-label" style="color:var(--yellow)">🟡 Canary</div>
+              <div class="canary-weight" style="color:var(--yellow)">50<sup>%</sup></div>
+              <div class="canary-detail">subset: v2<br/>image: :v2<br/>Deployment: account-service-v2</div>
+            </div>
+          </div>
+          <div style="font-size:12px;color:var(--text3);margin-top:10px">Both subsets share the same Service resource (app: account-service selector) and the same account_service MySQL schema.</div>
+        </div>
+
+        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:12px">Resilience Configuration (per VirtualService)</div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:12px">
+            <div><div style="color:var(--text3);font-size:10px;font-weight:700;text-transform:uppercase;margin-bottom:4px">Retry Policy</div><div style="color:var(--text2)">attempts: <strong style="color:var(--text)">2</strong><br/>perTryTimeout: <strong style="color:var(--text)">2s</strong><br/>retryOn: connect-failure, refused-stream, 503</div></div>
+            <div><div style="color:var(--text3);font-size:10px;font-weight:700;text-transform:uppercase;margin-bottom:4px">Outlier Detection</div><div style="color:var(--text2)">consecutive5xxErrors: <strong style="color:var(--text)">5</strong><br/>interval: <strong style="color:var(--text)">10s</strong><br/>baseEjectionTime: <strong style="color:var(--text)">30s</strong><br/>maxEjectionPercent: <strong style="color:var(--text)">100</strong></div></div>
+            <div><div style="color:var(--text3);font-size:10px;font-weight:700;text-transform:uppercase;margin-bottom:4px">Timeouts</div><div style="color:var(--text2)">api-gateway: <strong style="color:var(--text)">15s</strong><br/>user/account: <strong style="color:var(--text)">5s</strong><br/>fund-transfer/txn: <strong style="color:var(--text)">10s</strong><br/>sequence: <strong style="color:var(--text)">3s</strong></div></div>
+            <div><div style="color:var(--text3);font-size:10px;font-weight:700;text-transform:uppercase;margin-bottom:4px">mTLS</div><div style="color:var(--text2)">PeerAuthentication: <strong style="color:var(--text)">STRICT</strong><br/>DestinationRule TLS: <strong style="color:var(--text)">ISTIO_MUTUAL</strong><br/>trustDomain: <strong style="color:var(--text)">cluster.local</strong></div></div>
+            <div><div style="color:var(--text3);font-size:10px;font-weight:700;text-transform:uppercase;margin-bottom:4px">Load Balancing</div><div style="color:var(--text2)">user-service: <strong style="color:var(--text)">ROUND_ROBIN</strong><br/>others: default (ROUND_ROBIN)</div></div>
+            <div><div style="color:var(--text3);font-size:10px;font-weight:700;text-transform:uppercase;margin-bottom:4px">Tracing</div><div style="color:var(--text2)">Provider: <strong style="color:var(--text)">Jaeger</strong><br/>Sampling: <strong style="color:var(--text)">100%</strong><br/>Protocol: <strong style="color:var(--text)">Zipkin (port 9411)</strong></div></div>
+          </div>
+        </div>
+
+        <div style="font-size:14px;font-weight:700;color:var(--text);margin-top:20px;margin-bottom:12px">Fault Injection (istio-fault-injection.yaml)</div>
+        <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:10px;padding:14px;font-size:12px;color:var(--text2)">
+          <div style="color:var(--red);font-weight:700;margin-bottom:6px">⚠️ Testing configuration (NOT for production)</div>
+          VirtualService user-service-route with fault abort: httpStatus 503 at 100% value — used for resilience testing. This overrides the traffic management VirtualService if applied.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== OBSERVABILITY TAB ===================== -->
+  <div id="tab-observability" class="tab-content" style="padding-top:28px">
+    <div class="section-title">📊 Observability Stack</div>
+    <p class="section-subtitle">Metrics, Logs, Traces — all components confirmed from actual YAML and pom.xml files.</p>
+
+    <!-- Metrics flow -->
+    <div style="margin-bottom:32px">
+      <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:16px">📈 Metrics Pipeline</div>
+      <div class="obs-flow" style="grid-template-columns:auto auto auto auto auto">
+        <div class="obs-box">
+          <div class="obs-box-icon">🧩</div>
+          <div class="obs-box-name">Spring Boot Service</div>
+          <div class="obs-box-detail">Micrometer + Actuator<br/>/actuator/prometheus<br/>percentiles: p50 p95 p99<br/>SLO: 100ms 250ms 500ms 1s 2s 5s</div>
+        </div>
+        <div class="obs-arrow">→</div>
+        <div class="obs-box">
+          <div class="obs-box-icon">🔴</div>
+          <div class="obs-box-name">Prometheus</div>
+          <div class="obs-box-detail">prom/prometheus:v2.45.0<br/>scrape_interval: 15s<br/>SD: kubernetes pods<br/>namespace filter: banking<br/>annotation-based scraping</div>
+        </div>
+        <div class="obs-arrow">→</div>
+        <div class="obs-box">
+          <div class="obs-box-icon">📈</div>
+          <div class="obs-box-name">Grafana</div>
+          <div class="obs-box-detail">grafana/grafana:10.1.1<br/>:3000 (K8s) / :3000 (Compose)<br/>Datasources provisioned<br/>Dashboard: banking-performance</div>
+        </div>
+      </div>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--text2);margin-top:8px">
+        <strong style="color:var(--text)">Prometheus scrape annotations on all pods:</strong> <code class="inline">prometheus.io/scrape: 'true'</code> · <code class="inline">prometheus.io/path: /actuator/prometheus</code> · <code class="inline">prometheus.io/port: '[port]'</code><br/>
+        Also scrapes: <code class="inline">kube-state-metrics.monitoring.svc.cluster.local:8080</code> · Istio metrics via <code class="inline">enablePrometheusMerge: true</code>
+      </div>
+    </div>
+
+    <!-- Logging flow -->
+    <div style="margin-bottom:32px">
+      <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:16px">📋 Log Pipeline</div>
+      <div class="obs-flow" style="grid-template-columns:auto auto auto auto auto">
+        <div class="obs-box">
+          <div class="obs-box-icon">🧩</div>
+          <div class="obs-box-name">Spring Boot Service</div>
+          <div class="obs-box-detail">SLF4J / Logback<br/>Logs to stdout (container log)<br/>Written to /var/log/containers/<br/>*_banking_*.log</div>
+        </div>
+        <div class="obs-arrow">→</div>
+        <div class="obs-box">
+          <div class="obs-box-icon">🪄</div>
+          <div class="obs-box-name">Fluent Bit</div>
+          <div class="obs-box-detail">DaemonSet on all nodes<br/>fluent-bit:2.2.0<br/>tail: /var/log/containers/<br/>*_banking_*.log<br/>Parser: docker (JSON)</div>
+        </div>
+        <div class="obs-arrow">→</div>
+        <div class="obs-box">
+          <div class="obs-box-icon">📋</div>
+          <div class="obs-box-name">Loki</div>
+          <div class="obs-box-detail">grafana/loki:2.9.2<br/>:3100<br/>Labels: namespace, app, pod<br/>query_timeout: 120s<br/>max_outstanding: 256</div>
+        </div>
+        <div class="obs-arrow">→</div>
+        <div class="obs-box">
+          <div class="obs-box-icon">📈</div>
+          <div class="obs-box-name">Grafana</div>
+          <div class="obs-box-detail">Loki datasource<br/>Log exploration panels<br/>Correlated with traces</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tracing flow -->
+    <div style="margin-bottom:32px">
+      <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:16px">🔍 Distributed Tracing Pipeline</div>
+      <div class="obs-flow" style="grid-template-columns:auto auto auto auto auto">
+        <div class="obs-box">
+          <div class="obs-box-icon">🧩</div>
+          <div class="obs-box-name">Spring Boot Service</div>
+          <div class="obs-box-detail">OTel Java Agent (javaagent)<br/>opentelemetry-javaagent.jar<br/>OTEL_PROPAGATORS: b3multi,tracecontext<br/>Spring Cloud Sleuth (pom.xml)</div>
+        </div>
+        <div class="obs-arrow">→</div>
+        <div class="obs-box">
+          <div class="obs-box-icon">🕸️</div>
+          <div class="obs-box-name">Istio Envoy Sidecar</div>
+          <div class="obs-box-detail">Intercepts requests<br/>Propagates trace headers<br/>Telemetry: randomSamplingPercentage: 100.0<br/>Provider: jaeger</div>
+        </div>
+        <div class="obs-arrow">→</div>
+        <div class="obs-box">
+          <div class="obs-box-icon">🔍</div>
+          <div class="obs-box-name">Jaeger Collector</div>
+          <div class="obs-box-detail">jaeger-collector.monitoring.svc:9411<br/>Zipkin HTTP endpoint<br/>maxTagLength: 256<br/>jaegertracing/all-in-one:1.47</div>
+        </div>
+        <div class="obs-arrow">→</div>
+        <div class="obs-box">
+          <div class="obs-box-icon">🗺️</div>
+          <div class="obs-box-name">Jaeger UI / Kiali</div>
+          <div class="obs-box-detail">Jaeger Query :16686<br/>Kiali :20001 (uses Jaeger)<br/>Grafana also linked<br/>Service topology view</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Kiali box -->
+    <div style="background:var(--bg3);border:1px solid rgba(139,92,246,.3);border-radius:12px;padding:20px 24px">
+      <div style="font-size:15px;font-weight:700;color:var(--purple);margin-bottom:12px">🗺️ Kiali (Service Mesh Observability)</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;font-size:12px;color:var(--text2)">
+        <div><strong style="color:var(--text)">Version:</strong> v1.87.0<br/><strong style="color:var(--text)">Namespace:</strong> istio-system</div>
+        <div><strong style="color:var(--text)">Prometheus:</strong> http://prometheus.monitoring.svc.cluster.local:9090<br/><strong style="color:var(--text)">Grafana:</strong> http://grafana.monitoring.svc.cluster.local:3000</div>
+        <div><strong style="color:var(--text)">Jaeger:</strong> http://jaeger-query.monitoring.svc.cluster.local:16686<br/><strong style="color:var(--text)">Tracing Provider:</strong> jaeger (use_grpc: false)</div>
+        <div><strong style="color:var(--text)">Auth Strategy:</strong> anonymous<br/><strong style="color:var(--text)">Accessible Namespaces:</strong> ** (all)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== TECH STACK TAB ===================== -->
+  <div id="tab-tech" class="tab-content" style="padding-top:28px">
+    <div class="section-title">⚙️ Technology Stack</div>
+    <p class="section-subtitle">All technologies confirmed present in pom.xml, Dockerfiles, docker-compose.yml, and Kubernetes manifests.</p>
+    <div class="tech-grid">
+      <div class="tech-card">
+        <h3>☕ Backend</h3>
+        <div class="tech-list">
+          <div class="tech-item"><span class="tech-item-name">Spring Boot</span><span class="tech-item-version">2.7.15</span></div>
+          <div class="tech-item"><span class="tech-item-name">Spring Cloud</span><span class="tech-item-version">2021.0.8</span></div>
+          <div class="tech-item"><span class="tech-item-name">Spring Cloud Gateway</span><span class="tech-item-version">WebFlux</span></div>
+          <div class="tech-item"><span class="tech-item-name">Spring Cloud OpenFeign</span><span class="tech-item-version">embedded</span></div>
+          <div class="tech-item"><span class="tech-item-name">Spring Cloud Netflix Eureka</span><span class="tech-item-version">Client</span></div>
+          <div class="tech-item"><span class="tech-item-name">Spring Security OAuth2</span><span class="tech-item-version">Resource Server</span></div>
+          <div class="tech-item"><span class="tech-item-name">Spring Data JPA / Hibernate</span><span class="tech-item-version">2.7.x</span></div>
+          <div class="tech-item"><span class="tech-item-name">Spring Cloud Sleuth</span><span class="tech-item-version">trace propagation</span></div>
+          <div class="tech-item"><span class="tech-item-name">Lombok</span><span class="tech-item-version">1.18.36</span></div>
+          <div class="tech-item"><span class="tech-item-name">Java</span><span class="tech-item-version">17 (LTS)</span></div>
+        </div>
+      </div>
+      <div class="tech-card">
+        <h3>🔒 Security</h3>
+        <div class="tech-list">
+          <div class="tech-item"><span class="tech-item-name">Keycloak</span><span class="tech-item-version">Realm: banking-service</span></div>
+          <div class="tech-item"><span class="tech-item-name">OAuth2 Authorization Code</span><span class="tech-item-version">PKCE flow</span></div>
+          <div class="tech-item"><span class="tech-item-name">JWT (RS256)</span><span class="tech-item-version">JWK Set URI validated</span></div>
+          <div class="tech-item"><span class="tech-item-name">Istio mTLS</span><span class="tech-item-version">STRICT mode</span></div>
+          <div class="tech-item"><span class="tech-item-name">Kubernetes Secrets</span><span class="tech-item-version">banking-secret</span></div>
+        </div>
+      </div>
+      <div class="tech-card">
+        <h3>🐳 Container & Orchestration</h3>
+        <div class="tech-list">
+          <div class="tech-item"><span class="tech-item-name">Docker</span><span class="tech-item-version">eclipse-temurin:17-jdk</span></div>
+          <div class="tech-item"><span class="tech-item-name">Docker Compose</span><span class="tech-item-version">3.8</span></div>
+          <div class="tech-item"><span class="tech-item-name">Kubernetes</span><span class="tech-item-version">Docker Desktop</span></div>
+          <div class="tech-item"><span class="tech-item-name">Local Registry</span><span class="tech-item-version">localhost:5001</span></div>
+        </div>
+      </div>
+      <div class="tech-card">
+        <h3>🕸️ Service Mesh</h3>
+        <div class="tech-list">
+          <div class="tech-item"><span class="tech-item-name">Istio</span><span class="tech-item-version">1.23.0</span></div>
+          <div class="tech-item"><span class="tech-item-name">Envoy Proxy</span><span class="tech-item-version">sidecar injected</span></div>
+          <div class="tech-item"><span class="tech-item-name">istiod (control plane)</span><span class="tech-item-version">istio-system</span></div>
+          <div class="tech-item"><span class="tech-item-name">Kiali</span><span class="tech-item-version">v1.87</span></div>
+        </div>
+      </div>
+      <div class="tech-card">
+        <h3>📊 Monitoring</h3>
+        <div class="tech-list">
+          <div class="tech-item"><span class="tech-item-name">Prometheus</span><span class="tech-item-version">v2.45.0 (K8s) / v2.47.0 (Compose)</span></div>
+          <div class="tech-item"><span class="tech-item-name">Grafana</span><span class="tech-item-version">10.1.1 (K8s) / 10.1.0 (Compose)</span></div>
+          <div class="tech-item"><span class="tech-item-name">Micrometer</span><span class="tech-item-version">micrometer-registry-prometheus</span></div>
+          <div class="tech-item"><span class="tech-item-name">Spring Boot Actuator</span><span class="tech-item-version">health · info · metrics · prometheus</span></div>
+          <div class="tech-item"><span class="tech-item-name">kube-state-metrics</span><span class="tech-item-version">v2.9.2</span></div>
+        </div>
+      </div>
+      <div class="tech-card">
+        <h3>📋 Logging</h3>
+        <div class="tech-list">
+          <div class="tech-item"><span class="tech-item-name">Fluent Bit</span><span class="tech-item-version">2.2.0 (DaemonSet)</span></div>
+          <div class="tech-item"><span class="tech-item-name">Loki</span><span class="tech-item-version">2.9.2</span></div>
+          <div class="tech-item"><span class="tech-item-name">SLF4J / Logback</span><span class="tech-item-version">Spring Boot default</span></div>
+        </div>
+      </div>
+      <div class="tech-card">
+        <h3>🔍 Tracing</h3>
+        <div class="tech-list">
+          <div class="tech-item"><span class="tech-item-name">Jaeger</span><span class="tech-item-version">all-in-one:1.47</span></div>
+          <div class="tech-item"><span class="tech-item-name">OpenTelemetry Java Agent</span><span class="tech-item-version">javaagent (bundled)</span></div>
+          <div class="tech-item"><span class="tech-item-name">Spring Cloud Sleuth</span><span class="tech-item-version">b3multi + tracecontext</span></div>
+          <div class="tech-item"><span class="tech-item-name">Istio Telemetry</span><span class="tech-item-version">100% sampling</span></div>
+        </div>
+      </div>
+      <div class="tech-card">
+        <h3>🗄️ Database</h3>
+        <div class="tech-list">
+          <div class="tech-item"><span class="tech-item-name">MySQL</span><span class="tech-item-version">:3306 external</span></div>
+          <div class="tech-item"><span class="tech-item-name">mysql-connector-j</span><span class="tech-item-version">runtime dependency</span></div>
+          <div class="tech-item"><span class="tech-item-name">JPA ddl-auto</span><span class="tech-item-version">update</span></div>
+          <div class="tech-item"><span class="tech-item-name">5 separate schemas</span><span class="tech-item-version">one per service</span></div>
+        </div>
+      </div>
+      <div class="tech-card">
+        <h3>🔬 Performance Testing</h3>
+        <div class="tech-list">
+          <div class="tech-item"><span class="tech-item-name">k6</span><span class="tech-item-version">load / spike / stress tests</span></div>
+          <div class="tech-item"><span class="tech-item-name">Scenarios</span><span class="tech-item-version">baseline / canary / istio</span></div>
+          <div class="tech-item"><span class="tech-item-name">Postman</span><span class="tech-item-version">postman_collection/ dir</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== EVIDENCE TAB ===================== -->
+  <div id="tab-evidence" class="tab-content" style="padding-top:28px">
+    <div class="section-title">🔍 Repository Analysis &amp; Evidence</div>
+    <p class="section-subtitle">Every component shown in this diagram is directly sourced from actual project files.</p>
+
+    <div class="evidence-accordion open">
+      <div class="evidence-header" onclick="toggleAccordion(this)">
+        <h3>🌐 API Gateway</h3><span class="evidence-chevron">▼</span>
+      </div>
+      <div class="evidence-body">
+        <table class="evidence-table">
+          <tr><th>Field</th><th>Value</th></tr>
+          <tr><td>Location</td><td><code>API-Gateway/</code></td></tr>
+          <tr><td>Evidence</td><td><code>API-Gateway/src/main/resources/application.yml</code>, <code>API-Gateway/src/main/java/.../config/SecurityConfig.java</code></td></tr>
+          <tr><td>Port</td><td>8080 (NodePort 30080)</td></tr>
+          <tr><td>Routes</td><td>6 routes: /api/users/**, /accounts/**, /fund-transfers/**, /transactions/**, /sequence/**, /fund-transfers/** (raw)</td></tr>
+          <tr><td>Security</td><td>OAuth2 Resource Server + OAuth2 Login. /api/users/register is permitAll(). All other routes require JWT from Keycloak banking-service realm.</td></tr>
+          <tr><td>Keycloak Config</td><td>url: http://localhost:8571/, realm: banking-service, client-id: banking-service-client</td></tr>
+          <tr><td>Spring Cloud</td><td>Spring Cloud Gateway (WebFlux), Eureka Client, lb:// load balancing</td></tr>
+          <tr><td>Monitoring</td><td>Actuator endpoints: health, info, metrics, prometheus. Prometheus histogram with SLO.</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="evidence-accordion">
+      <div class="evidence-header" onclick="toggleAccordion(this)">
+        <h3>👤 User Service</h3><span class="evidence-chevron">▼</span>
+      </div>
+      <div class="evidence-body">
+        <table class="evidence-table">
+          <tr><th>Field</th><th>Value</th></tr>
+          <tr><td>Location</td><td><code>User-Service/</code></td></tr>
+          <tr><td>Port</td><td>8082</td></tr>
+          <tr><td>Database</td><td>user_service (MySQL)</td></tr>
+          <tr><td>Controllers</td><td>UserController: POST /api/users/register, GET /api/users, GET /api/users/auth/{authId}, PATCH /api/users/{id}, PUT /api/users/{id}, GET /api/users/{userId}, GET /api/users/accounts/{accountId}</td></tr>
+          <tr><td>Keycloak Integration</td><td>KeycloakManager, KeycloakProperties, KeycloakService. Creates users in Keycloak. Updates user enabled/verified status on approval.</td></tr>
+          <tr><td>Feign Clients</td><td>AccountService (account-service): GET /accounts?accountNumber — used in readUserByAccountId()</td></tr>
+          <tr><td>Entity</td><td>User (userId, emailId, contactNo, authId, identificationNumber, status, userProfile), UserProfile</td></tr>
+          <tr><td>HPA</td><td>user-service-hpa: min 1, max 2, CPU target 70%</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="evidence-accordion">
+      <div class="evidence-header" onclick="toggleAccordion(this)">
+        <h3>🏦 Account Service</h3><span class="evidence-chevron">▼</span>
+      </div>
+      <div class="evidence-body">
+        <table class="evidence-table">
+          <tr><th>Field</th><th>Value</th></tr>
+          <tr><td>Location</td><td><code>Account-Service/</code></td></tr>
+          <tr><td>Port</td><td>8081</td></tr>
+          <tr><td>Database</td><td>account_service (MySQL)</td></tr>
+          <tr><td>Canary</td><td>Deployment v1 (latest) + Deployment v2 (v2) — both in banking namespace. Istio splits 50/50.</td></tr>
+          <tr><td>Controllers</td><td>AccountController: POST /accounts, PATCH /accounts, GET /accounts, PUT /accounts, GET /accounts/balance, GET /accounts/{accountId}/transactions, PUT /accounts/closure, GET /accounts/{userId}</td></tr>
+          <tr><td>Feign Clients</td><td>UserService (user-service): GET /api/users/{userId}. SequenceService (sequence-generator): POST /sequence. TransactionService (transaction-service): GET /transactions</td></tr>
+          <tr><td>Business Logic</td><td>Account creation: validate user → generate account number via Sequence → save PENDING account. Account number format: ACC + 7-digit zero-padded.</td></tr>
+          <tr><td>Entity</td><td>Account (accountNumber, userId, accountType, accountStatus, availableBalance)</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="evidence-accordion">
+      <div class="evidence-header" onclick="toggleAccordion(this)">
+        <h3>💸 Fund Transfer Service</h3><span class="evidence-chevron">▼</span>
+      </div>
+      <div class="evidence-body">
+        <table class="evidence-table">
+          <tr><th>Field</th><th>Value</th></tr>
+          <tr><td>Location</td><td><code>Fund-Transfer/</code></td></tr>
+          <tr><td>Port</td><td>8085</td></tr>
+          <tr><td>Database</td><td>fund_transfer_service (MySQL)</td></tr>
+          <tr><td>Controllers</td><td>FundTransferController: POST /fund-transfers, GET /fund-transfers/{referenceId}, GET /fund-transfers?accountId</td></tr>
+          <tr><td>Feign Clients</td><td>AccountService: GET /accounts (readByAccountNumber), PUT /accounts (updateAccount). TransactionService: POST /transactions (makeTransaction), POST /transactions/internal (makeInternalTransactions)</td></tr>
+          <tr><td>Business Logic</td><td>internalTransfer(): 1. Read fromAccount 2. Validate ACTIVE + sufficient balance 3. Read toAccount 4. Update both balances 5. Record internal transaction pair 6. Save FundTransfer record</td></tr>
+          <tr><td>Entity</td><td>FundTransfer (transactionReference UUID, fromAccount, toAccount, amount, transferType=INTERNAL, status=SUCCESS)</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="evidence-accordion">
+      <div class="evidence-header" onclick="toggleAccordion(this)">
+        <h3>📒 Transaction Service</h3><span class="evidence-chevron">▼</span>
+      </div>
+      <div class="evidence-body">
+        <table class="evidence-table">
+          <tr><th>Field</th><th>Value</th></tr>
+          <tr><td>Location</td><td><code>Transaction-Service/</code></td></tr>
+          <tr><td>Port</td><td>8084</td></tr>
+          <tr><td>Database</td><td>transaction_service (MySQL)</td></tr>
+          <tr><td>Controllers</td><td>TransactionController: POST /transactions, POST /transactions/internal, GET /transactions?accountId, GET /transactions/{referenceId}</td></tr>
+          <tr><td>Feign Clients</td><td>AccountService (account-service): GET /accounts (readByAccountNumber), PUT /accounts (updateAccount) — used for credit/debit operations</td></tr>
+          <tr><td>Entity</td><td>Transaction (transactionId, accountId, transactionType, amount, description, transactionStatus, transactionReference)</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="evidence-accordion">
+      <div class="evidence-header" onclick="toggleAccordion(this)">
+        <h3>🔢 Sequence Generator</h3><span class="evidence-chevron">▼</span>
+      </div>
+      <div class="evidence-body">
+        <table class="evidence-table">
+          <tr><th>Field</th><th>Value</th></tr>
+          <tr><td>Location</td><td><code>Sequence-Generator/</code></td></tr>
+          <tr><td>Port</td><td>8083</td></tr>
+          <tr><td>Database</td><td>sequence_generator (MySQL)</td></tr>
+          <tr><td>Controllers</td><td>SequenceController: POST /sequence (generateAccountNumber)</td></tr>
+          <tr><td>Purpose</td><td>Generates unique, incrementing account numbers. Called by Account Service only. Entity: Sequence (accountNumber auto-increment)</td></tr>
+          <tr><td>Callers</td><td>Only Account Service via FeignClient(name="sequence-generator")</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="evidence-accordion">
+      <div class="evidence-header" onclick="toggleAccordion(this)">
+        <h3>📡 Service Registry (Eureka)</h3><span class="evidence-chevron">▼</span>
+      </div>
+      <div class="evidence-body">
+        <table class="evidence-table">
+          <tr><th>Field</th><th>Value</th></tr>
+          <tr><td>Location</td><td><code>Service-Registry/</code></td></tr>
+          <tr><td>Port</td><td>8761</td></tr>
+          <tr><td>Purpose</td><td>Netflix Eureka Server. All microservices register here. API Gateway uses lb:// to load balance via Eureka.</td></tr>
+          <tr><td>Config</td><td>register-with-eureka: false, fetch-registry: false, peer-node-read-timeout-ms: 10000</td></tr>
+          <tr><td>K8s DNS</td><td>Service name: service-registry. ConfigMap provides URL: http://service-registry:8761/eureka/</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="evidence-accordion">
+      <div class="evidence-header" onclick="toggleAccordion(this)">
+        <h3>🔒 Security Architecture</h3><span class="evidence-chevron">▼</span>
+      </div>
+      <div class="evidence-body">
+        <table class="evidence-table">
+          <tr><th>Component</th><th>Evidence</th></tr>
+          <tr><td>Keycloak</td><td>API Gateway: app.config.keycloak.url, realm: banking-service. User Service: KeycloakManager.java, KeycloakProperties.java, KeycloakServiceImpl.java</td></tr>
+          <tr><td>OAuth2 Clients</td><td>banking-service-client (API Gateway login flow), banking-service-api-client (User Service admin operations)</td></tr>
+          <tr><td>JWT Validation</td><td>API Gateway: oauth2ResourceServer().jwt() with JWK Set URI from Keycloak</td></tr>
+          <tr><td>mTLS</td><td>k8s/istio-mtls.yaml: PeerAuthentication banking namespace STRICT. All DestinationRules: tls.mode: ISTIO_MUTUAL</td></tr>
+          <tr><td>K8s Secrets</td><td>banking-secret: mysql-username, mysql-password, keycloak-gateway-secret, keycloak-api-secret (base64 encoded)</td></tr>
+          <tr><td>Public Endpoint</td><td>Only /api/users/register is permitAll(). All other routes require authenticated JWT.</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="evidence-accordion">
+      <div class="evidence-header" onclick="toggleAccordion(this)">
+        <h3>⚠️ Assumptions & Ambiguities</h3><span class="evidence-chevron">▼</span>
+      </div>
+      <div class="evidence-body">
+        <table class="evidence-table">
+          <tr><th>Item</th><th>Note</th></tr>
+          <tr><td>No Kafka/RabbitMQ</td><td>No Kafka or RabbitMQ dependencies found in any pom.xml. All inter-service communication is synchronous via Feign.</td></tr>
+          <tr><td>No Redis/Cache</td><td>No Redis or caching dependency found. No @Cacheable annotations detected.</td></tr>
+          <tr><td>MySQL is external</td><td>All services use host.docker.internal:3306, meaning MySQL runs on the Windows host, not in Kubernetes. No MySQL StatefulSet or PVC in k8s/ directory.</td></tr>
+          <tr><td>Canary is 50/50</td><td>Both VirtualService account-service-route subsets are weighted 50/50 for both GET and all other methods. This is NOT the typical small-canary pattern (e.g., 90/10).</td></tr>
+          <tr><td>OTEL exporters disabled</td><td>All deployments set OTEL_TRACES_EXPORTER=none, OTEL_METRICS_EXPORTER=none, OTEL_LOGS_EXPORTER=none. The OTel Java agent is attached but exporters are disabled. Tracing relies on Istio Envoy sidecar instead.</td></tr>
+          <tr><td>Fault injection file</td><td>k8s/istio-fault-injection.yaml defines 100% abort on user-service. This is a TESTING config and if applied would make user-service 100% unavailable. It should NOT be applied in production.</td></tr>
+          <tr><td>No ConfigServer</td><td>No Spring Cloud Config Server found. Configuration is embedded in application.yml + K8s ConfigMap/Secrets.</td></tr>
+          <tr><td>Keycloak not in K8s</td><td>Keycloak runs on the host at :8571, not inside the Kubernetes cluster. Services reach it via host.docker.internal.</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== LEGEND TAB ===================== -->
+  <div id="tab-legend" class="tab-content" style="padding-top:28px">
+    <div class="section-title">🗺️ Architecture Legend</div>
+    <p class="section-subtitle">Connection types, color codes, and node meanings.</p>
+    <div class="legend-grid">
+      <div class="legend-item">
+        <div class="legend-line" style="background:var(--primary)"></div>
+        <div class="legend-info"><strong>HTTP / REST</strong><span>Synchronous HTTP call (Spring MVC / WebFlux)</span></div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-line" style="background:var(--orange)"></div>
+        <div class="legend-info"><strong>Feign Client</strong><span>Spring Cloud OpenFeign — HTTP via Eureka lb://</span></div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-line" style="background:var(--purple)"></div>
+        <div class="legend-info"><strong>Istio mTLS (STRICT)</strong><span>All pod-to-pod communication encrypted</span></div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-line" style="background:var(--green)"></div>
+        <div class="legend-info"><strong>Microservice Pod</strong><span>Spring Boot service in banking namespace</span></div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-line" style="background:var(--orange)"></div>
+        <div class="legend-info"><strong>JDBC / Database</strong><span>JPA/Hibernate → MySQL (external to K8s)</span></div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-line" style="background:var(--pink)"></div>
+        <div class="legend-info"><strong>Metrics (Prometheus)</strong><span>/actuator/prometheus → Prometheus scrape</span></div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-line" style="background:var(--cyan)"></div>
+        <div class="legend-info"><strong>Logs (Fluent Bit → Loki)</strong><span>Container stdout → DaemonSet → Loki :3100</span></div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-line" style="background:var(--yellow)"></div>
+        <div class="legend-info"><strong>Traces (Jaeger)</strong><span>Istio Envoy → Zipkin HTTP → Jaeger :9411</span></div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-line dashed" style="color:var(--red)"></div>
+        <div class="legend-info"><strong>External Service</strong><span>Keycloak (host:8571), MySQL (host:3306) — not in K8s</span></div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-line" style="background:var(--green)"></div>
+        <div class="legend-info"><strong>🟢 Stable (v1)</strong><span>account-service original deployment</span></div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-line" style="background:var(--yellow)"></div>
+        <div class="legend-info"><strong>🟡 Canary (v2)</strong><span>account-service-v2 deployment — 50% traffic</span></div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-line" style="background:var(--primary)"></div>
+        <div class="legend-info"><strong>Service Discovery</strong><span>Netflix Eureka server at service-registry:8761</span></div>
+      </div>
+    </div>
+
+    <!-- Color Key -->
+    <div style="margin-top:32px">
+      <div class="section-title" style="font-size:18px">Color Key</div>
+      <div class="legend-grid" style="margin-top:16px">
+        <div class="legend-item"><div class="legend-line" style="background:var(--cyan);width:20px;border-radius:50%"></div><div class="legend-info"><strong style="color:var(--cyan)">Cyan</strong><span>External users / clients</span></div></div>
+        <div class="legend-item"><div class="legend-line" style="background:var(--yellow);width:20px;border-radius:50%"></div><div class="legend-info"><strong style="color:var(--yellow)">Yellow</strong><span>Ingress / edge / Istio Gateway</span></div></div>
+        <div class="legend-item"><div class="legend-line" style="background:var(--primary);width:20px;border-radius:50%"></div><div class="legend-info"><strong style="color:var(--primary)">Blue</strong><span>API Gateway / infrastructure</span></div></div>
+        <div class="legend-item"><div class="legend-line" style="background:var(--purple);width:20px;border-radius:50%"></div><div class="legend-info"><strong style="color:var(--purple)">Purple</strong><span>Service mesh / Istio / Kiali</span></div></div>
+        <div class="legend-item"><div class="legend-line" style="background:var(--green);width:20px;border-radius:50%"></div><div class="legend-info"><strong style="color:var(--green)">Green</strong><span>Microservices layer</span></div></div>
+        <div class="legend-item"><div class="legend-line" style="background:var(--orange);width:20px;border-radius:50%"></div><div class="legend-info"><strong style="color:var(--orange)">Orange</strong><span>Database / data layer</span></div></div>
+        <div class="legend-item"><div class="legend-line" style="background:var(--pink);width:20px;border-radius:50%"></div><div class="legend-info"><strong style="color:var(--pink)">Pink</strong><span>Monitoring / observability</span></div></div>
+        <div class="legend-item"><div class="legend-line" style="background:var(--red);width:20px;border-radius:50%"></div><div class="legend-info"><strong style="color:var(--red)">Red</strong><span>Keycloak / security provider</span></div></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- section -->
+
+<!-- ===================== MODAL ===================== -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-title">Component</div>
+        <div class="modal-subtitle" id="modal-subtitle">Details</div>
+      </div>
+      <button class="modal-close" onclick="document.getElementById('modal').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+// ===================== TAB MANAGEMENT =====================
+function showTab(id) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+// ===================== FLOW MANAGEMENT =====================
+function showFlow(id) {
+  document.querySelectorAll('.flow-diagram').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.flow-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+// ===================== ACCORDION =====================
+function toggleAccordion(header) {
+  const acc = header.closest('.evidence-accordion');
+  acc.classList.toggle('open');
+}
+
+// ===================== MODAL DATA =====================
+const modalData = {
+  'api-gateway': {
+    title: '🌐 API Gateway',
+    subtitle: 'Spring Cloud Gateway — banking namespace :8080',
+    body: `
+      <div class="detail-section"><div class="detail-label">Purpose</div><div class="detail-content">Single entry point for all external requests. Routes to downstream microservices via Eureka service discovery (lb:// prefix).</div></div>
+      <div class="detail-section"><div class="detail-label">Port & Access</div><div class="detail-content"><ul><li>Container port: 8080</li><li>K8s NodePort: 30080 (external access from Windows)</li><li>Istio routes all prefix / to this service</li></ul></div></div>
+      <div class="detail-section"><div class="detail-label">Gateway Routes</div><div class="detail-content"><ul><li>/api/users/** → lb://user-service</li><li>/accounts/** → lb://account-service</li><li>/fund-transfers/** → lb://fund-transfer-service</li><li>/transactions/** → lb://transaction-service</li><li>/sequence/** → lb://sequence-generator</li></ul></div></div>
+      <div class="detail-section"><div class="detail-label">Security</div><div class="detail-content"><ul><li>/api/users/register → permitAll()</li><li>All other routes → authenticated()</li><li>oauth2ResourceServer().jwt() — validates against Keycloak JWK Set URI</li><li>oauth2Login() — Authorization Code flow</li><li>CSRF disabled</li></ul></div></div>
+      <div class="detail-section"><div class="detail-label">Key Files</div><div class="detail-content"><code>API-Gateway/src/main/resources/application.yml</code><br/><code>API-Gateway/src/main/java/.../config/SecurityConfig.java</code></div></div>
+      <div class="detail-section"><div class="detail-label">Resources</div><div class="detail-content">CPU: 100m–500m · Memory: 256Mi–512Mi · Readiness + Liveness probes</div></div>
+    `
+  },
+  'user-service': {
+    title: '👤 User Service',
+    subtitle: 'user-service — banking namespace :8082',
+    body: `
+      <div class="detail-section"><div class="detail-label">Purpose</div><div class="detail-content">Manages user registration, profile, status, and Keycloak identity. Users must be APPROVED before they can authenticate.</div></div>
+      <div class="detail-section"><div class="detail-label">Database</div><div class="detail-content"><code>user_service</code> MySQL schema — User, UserProfile entities</div></div>
+      <div class="detail-section"><div class="detail-label">API Endpoints</div><div class="detail-content"><ul>
+        <li>POST /api/users/register — create user (public)</li>
+        <li>GET /api/users — list all users</li>
+        <li>GET /api/users/auth/{authId} — find by Keycloak ID</li>
+        <li>PATCH /api/users/{id} — update status (PENDING→APPROVED)</li>
+        <li>PUT /api/users/{id} — update profile data</li>
+        <li>GET /api/users/{userId} — find by userId</li>
+        <li>GET /api/users/accounts/{accountId} — find user by account number</li>
+      </ul></div></div>
+      <div class="detail-section"><div class="detail-label">External Dependencies</div><div class="detail-content"><ul>
+        <li>Keycloak Admin REST API (KeycloakManager) — create/read/update users</li>
+        <li>account-service Feign (AccountService) — readByAccountNumber for readUserByAccountId()</li>
+      </ul></div></div>
+      <div class="detail-section"><div class="detail-label">Auto-scaling</div><div class="detail-content">HPA: min 1 replica, max 2 replicas, CPU target 70%</div></div>
+    `
+  },
+  'account-service': {
+    title: '🏦 Account Service',
+    subtitle: 'account-service — banking namespace :8081 (v1 + v2)',
+    body: `
+      <div class="detail-section"><div class="detail-label">Purpose</div><div class="detail-content">Core banking account management. Creates, reads, updates, closes accounts. Orchestrates account number generation and transaction history retrieval.</div></div>
+      <div class="detail-section"><div class="detail-label">Database</div><div class="detail-content"><code>account_service</code> MySQL — Account entity (accountNumber, userId, accountType, accountStatus, availableBalance)</div></div>
+      <div class="detail-section"><div class="detail-label">API Endpoints</div><div class="detail-content"><ul>
+        <li>POST /accounts — create account</li>
+        <li>GET /accounts?accountNumber=X — read account</li>
+        <li>PATCH /accounts?accountNumber=X — update status</li>
+        <li>PUT /accounts?accountNumber=X — update balance/details</li>
+        <li>GET /accounts/balance?accountNumber=X — get balance</li>
+        <li>GET /accounts/{accountId}/transactions — get transaction history</li>
+        <li>PUT /accounts/closure?accountNumber=X — close account</li>
+        <li>GET /accounts/{userId} — read account by userId</li>
+      </ul></div></div>
+      <div class="detail-section"><div class="detail-label">Feign Clients</div><div class="detail-content"><ul>
+        <li>user-service — readUserById() validates user exists</li>
+        <li>sequence-generator — generateAccountNumber() for new accounts</li>
+        <li>transaction-service — getTransactionsFromAccountId()</li>
+      </ul></div></div>
+      <div class="detail-section"><div class="detail-label">Canary Deployment</div><div class="detail-content">v1 (latest) and v2 both receive 50% traffic for GET and non-GET requests. Same MySQL schema shared.</div></div>
+    `
+  },
+  'fund-transfer': {
+    title: '💸 Fund-Transfer Service',
+    subtitle: 'fund-transfer-service — banking namespace :8085',
+    body: `
+      <div class="detail-section"><div class="detail-label">Purpose</div><div class="detail-content">Orchestrates internal fund transfers between accounts. Validates both accounts, updates balances via Account Service, records transactions via Transaction Service.</div></div>
+      <div class="detail-section"><div class="detail-label">Database</div><div class="detail-content"><code>fund_transfer_service</code> MySQL — FundTransfer entity (transactionReference, fromAccount, toAccount, amount, transferType, status)</div></div>
+      <div class="detail-section"><div class="detail-label">API Endpoints</div><div class="detail-content"><ul>
+        <li>POST /fund-transfers — initiate transfer (6-step orchestration)</li>
+        <li>GET /fund-transfers/{referenceId} — get transfer details</li>
+        <li>GET /fund-transfers?accountId=X — list transfers by account</li>
+      </ul></div></div>
+      <div class="detail-section"><div class="detail-label">Feign Clients</div><div class="detail-content"><ul>
+        <li>account-service — readByAccountNumber() ×2, updateAccount() ×2</li>
+        <li>transaction-service — makeTransaction(), makeInternalTransactions()</li>
+      </ul></div></div>
+      <div class="detail-section"><div class="detail-label">Istio Config</div><div class="detail-content">fund-transfer-route: GET timeout 5s + retry, POST timeout 10s. DestinationRule: ISTIO_MUTUAL + outlierDetection.</div></div>
+    `
+  },
+  'transaction-service': {
+    title: '📒 Transaction Service',
+    subtitle: 'transaction-service — banking namespace :8084',
+    body: `
+      <div class="detail-section"><div class="detail-label">Purpose</div><div class="detail-content">Records and retrieves financial transactions (ledger). Called by Account Service (single txn) and Fund-Transfer Service (internal paired txns).</div></div>
+      <div class="detail-section"><div class="detail-label">Database</div><div class="detail-content"><code>transaction_service</code> MySQL — Transaction entity (accountId, transactionType, amount, description, transactionStatus, transactionReference)</div></div>
+      <div class="detail-section"><div class="detail-label">API Endpoints</div><div class="detail-content"><ul>
+        <li>POST /transactions — add single transaction</li>
+        <li>POST /transactions/internal — add paired internal transfer transactions</li>
+        <li>GET /transactions?accountId=X — list by account</li>
+        <li>GET /transactions/{referenceId} — list by reference</li>
+      </ul></div></div>
+      <div class="detail-section"><div class="detail-label">Feign Clients</div><div class="detail-content"><ul>
+        <li>account-service — readByAccountNumber(), updateAccount() for debit/credit operations</li>
+      </ul></div></div>
+    `
+  },
+  'sequence-gen': {
+    title: '🔢 Sequence Generator',
+    subtitle: 'sequence-generator — banking namespace :8083',
+    body: `
+      <div class="detail-section"><div class="detail-label">Purpose</div><div class="detail-content">Generates unique, monotonically increasing account numbers. Single endpoint. Called exclusively by Account Service when creating new accounts.</div></div>
+      <div class="detail-section"><div class="detail-label">Database</div><div class="detail-content"><code>sequence_generator</code> MySQL — Sequence entity with auto-increment accountNumber</div></div>
+      <div class="detail-section"><div class="detail-label">API</div><div class="detail-content"><code>POST /sequence</code> → returns { accountNumber: &lt;long&gt; }. Account Service prefixes with "ACC" and zero-pads to 7 digits.</div></div>
+      <div class="detail-section"><div class="detail-label">Istio Config</div><div class="detail-content">sequence-generator-route: timeout 3s (fastest timeout — simple operation). ISTIO_MUTUAL + outlierDetection.</div></div>
+    `
+  },
+  'service-registry': {
+    title: '📡 Service Registry (Eureka)',
+    subtitle: 'service-registry — banking namespace :8761',
+    body: `
+      <div class="detail-section"><div class="detail-label">Purpose</div><div class="detail-content">Netflix Eureka Server. All Spring Boot microservices register at startup. API Gateway uses lb:// prefix to discover and load-balance to registered instances.</div></div>
+      <div class="detail-section"><div class="detail-label">Configuration</div><div class="detail-content"><ul>
+        <li>register-with-eureka: false (server doesn't register itself)</li>
+        <li>fetch-registry: false</li>
+        <li>peer-node-read-timeout-ms: 10000</li>
+        <li>K8s ConfigMap key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE = http://service-registry:8761/eureka/</li>
+        <li>EUREKA_INSTANCE_PREFERIPADDRESS: true (so Feign resolves to pod IP)</li>
+      </ul></div></div>
+    `
+  },
+  'keycloak-sec': {
+    title: '🔐 API Gateway Security Configuration',
+    subtitle: 'SecurityConfig.java — WebFlux OAuth2',
+    body: `
+      <div class="detail-section"><div class="detail-label">Configuration</div><div class="detail-content"><ul>
+        <li>Framework: Spring Security WebFlux (@EnableWebFluxSecurity)</li>
+        <li>/api/users/register → permitAll() (only public endpoint)</li>
+        <li>All other exchanges → authenticated()</li>
+        <li>CSRF disabled</li>
+        <li>oauth2Login() — Authorization Code flow for browser clients</li>
+        <li>oauth2ResourceServer().jwt() — validates Bearer tokens</li>
+      </ul></div></div>
+      <div class="detail-section"><div class="detail-label">Keycloak URLs</div><div class="detail-content"><ul>
+        <li>Token URI: /realms/banking-service/protocol/openid-connect/token</li>
+        <li>Auth URI: /realms/banking-service/protocol/openid-connect/auth</li>
+        <li>JWK Set URI: /realms/banking-service/protocol/openid-connect/certs</li>
+        <li>User Info URI: /realms/banking-service/protocol/openid-connect/userinfo</li>
+      </ul></div></div>
+    `
+  },
+  'istio-gw': {
+    title: '🌀 Istio Ingress Gateway',
+    subtitle: 'banking-gateway — istio-system namespace',
+    body: `
+      <div class="detail-section"><div class="detail-label">Gateway Resource</div><div class="detail-content"><ul>
+        <li>Name: banking-gateway</li>
+        <li>Namespace: banking</li>
+        <li>Selector: istio: ingressgateway</li>
+        <li>Server: port 80, protocol HTTP, hosts: *</li>
+      </ul></div></div>
+      <div class="detail-section"><div class="detail-label">VirtualService</div><div class="detail-content"><ul>
+        <li>Name: api-gateway-route</li>
+        <li>Match: prefix /</li>
+        <li>Destination: api-gateway.banking.svc.cluster.local:8080</li>
+        <li>Timeout: 15s</li>
+      </ul></div></div>
+    `
+  },
+  'vs-api': {
+    title: '🔀 VirtualService: api-gateway-route',
+    subtitle: 'Routes all Istio traffic to API Gateway',
+    body: `
+      <div class="detail-section"><div class="detail-label">Routing</div><div class="detail-content"><ul>
+        <li>Hosts: * (all)</li>
+        <li>Gateways: banking-gateway</li>
+        <li>Match: URI prefix /</li>
+        <li>Destination: api-gateway.banking.svc.cluster.local port 8080</li>
+        <li>Timeout: 15s</li>
+      </ul></div></div>
+    `
+  },
+  'mtls': {
+    title: '🔒 PeerAuthentication — mTLS STRICT',
+    subtitle: 'banking namespace — all pod communication encrypted',
+    body: `
+      <div class="detail-section"><div class="detail-label">Configuration</div><div class="detail-content"><ul>
+        <li>Name: default</li>
+        <li>Namespace: banking</li>
+        <li>mtls.mode: STRICT</li>
+        <li>All DestinationRules also specify tls.mode: ISTIO_MUTUAL</li>
+      </ul></div></div>
+      <div class="detail-section"><div class="detail-label">Effect</div><div class="detail-content">All pod-to-pod communication within the banking namespace is encrypted with mutual TLS. Unencrypted connections are rejected. Envoy sidecars handle certificate rotation transparently.</div></div>
+    `
+  },
+  'dr-account': {
+    title: '⚖️ DestinationRule: account-service (v1/v2)',
+    subtitle: 'Canary deployment traffic split',
+    body: `
+      <div class="detail-section"><div class="detail-label">Subsets</div><div class="detail-content"><ul>
+        <li>v1: labels { version: v1 } → account-service deployment</li>
+        <li>v2: labels { version: v2 } → account-service-v2 deployment</li>
+      </ul></div></div>
+      <div class="detail-section"><div class="detail-label">Traffic Policy</div><div class="detail-content"><ul>
+        <li>tls.mode: ISTIO_MUTUAL</li>
+        <li>outlierDetection: consecutive5xxErrors: 5, interval: 10s, baseEjectionTime: 30s, maxEjectionPercent: 100</li>
+        <li>VirtualService weight: 50% v1, 50% v2 for both GET and non-GET</li>
+      </ul></div></div>
+    `
+  },
+  'outlier': {
+    title: '🚫 Outlier Detection (Circuit Breaking)',
+    subtitle: 'Applied to all DestinationRules in banking namespace',
+    body: `
+      <div class="detail-section"><div class="detail-label">Configuration</div><div class="detail-content"><ul>
+        <li>consecutive5xxErrors: 5 (5 consecutive errors triggers ejection)</li>
+        <li>interval: 10s (detection window)</li>
+        <li>baseEjectionTime: 30s (ejected for 30 seconds minimum)</li>
+        <li>maxEjectionPercent: 100 (up to 100% of pods can be ejected)</li>
+      </ul></div></div>
+      <div class="detail-section"><div class="detail-label">Services</div><div class="detail-content">Applied to: api-gateway, user-service, account-service, fund-transfer, transaction-service, sequence-generator</div></div>
+    `
+  },
+  'prometheus': {
+    title: '🔴 Prometheus',
+    subtitle: 'monitoring namespace :9090',
+    body: `
+      <div class="detail-section"><div class="detail-label">Configuration</div><div class="detail-content"><ul>
+        <li>Image: prom/prometheus:v2.45.0 (K8s) / v2.47.0 (Compose)</li>
+        <li>scrape_interval: 15s, scrape_timeout: 10s</li>
+        <li>Scrape targets: kubernetes-pods (banking namespace) + kube-state-metrics</li>
+        <li>Pod discovery: kubernetes_sd_configs role: pod + annotation relabeling</li>
+        <li>enablePrometheusMerge: true — also scrapes Istio metrics from Envoy sidecars</li>
+        <li>Prometheus data retention: 15 days (Compose config)</li>
+      </ul></div></div>
+      <div class="detail-section"><div class="detail-label">RBAC</div><div class="detail-content">ClusterRole: get/list/watch nodes, pods, services, endpoints, ingresses. Bound to prometheus ServiceAccount in monitoring namespace.</div></div>
+    `
+  },
+  'grafana': {
+    title: '📈 Grafana',
+    subtitle: 'monitoring namespace :3000',
+    body: `
+      <div class="detail-section"><div class="detail-label">Configuration</div><div class="detail-content"><ul>
+        <li>Image: grafana/grafana:10.1.1</li>
+        <li>Port: 3000</li>
+        <li>Admin password: admin (dev only)</li>
+        <li>Anonymous access enabled</li>
+        <li>Datasources provisioned: Prometheus + Loki</li>
+        <li>Dashboard: banking-performance.json (default home dashboard)</li>
+      </ul></div></div>
+    `
+  },
+  'loki': {
+    title: '📋 Loki',
+    subtitle: 'monitoring namespace :3100',
+    body: `
+      <div class="detail-section"><div class="detail-label">Configuration</div><div class="detail-content"><ul>
+        <li>Image: grafana/loki:2.9.2</li>
+        <li>Storage: filesystem (boltdb-shipper)</li>
+        <li>query_timeout: 120s</li>
+        <li>split_queries_by_interval: 15m</li>
+        <li>max_outstanding_requests_per_tenant: 256</li>
+        <li>max_query_parallelism: 32</li>
+        <li>max_entries_limit_per_query: 5000</li>
+        <li>Resources: CPU 100m-500m, Memory 256Mi-768Mi (tuned for stability)</li>
+      </ul></div></div>
+    `
+  },
+  'fluent-bit': {
+    title: '🪄 Fluent Bit',
+    subtitle: 'monitoring namespace — DaemonSet on all nodes',
+    body: `
+      <div class="detail-section"><div class="detail-label">Configuration</div><div class="detail-content"><ul>
+        <li>Image: cr.fluentbit.io/fluent/fluent-bit:2.2.0</li>
+        <li>Type: DaemonSet (runs on every node)</li>
+        <li>Input: tail /var/log/containers/*_banking_*.log</li>
+        <li>Parser: docker (JSON log format)</li>
+        <li>Filter: kubernetes (enriches with pod/namespace/container metadata)</li>
+        <li>Output: loki.monitoring.svc.cluster.local:3100</li>
+        <li>Labels: job=fluent-bit, namespace, app, pod, container</li>
+      </ul></div></div>
+    `
+  },
+  'jaeger': {
+    title: '🔍 Jaeger',
+    subtitle: 'monitoring namespace — distributed tracing backend',
+    body: `
+      <div class="detail-section"><div class="detail-label">Configuration</div><div class="detail-content"><ul>
+        <li>Image: jaegertracing/all-in-one:1.47 (all-in-one mode)</li>
+        <li>Query UI: jaeger-query.monitoring.svc.cluster.local:16686</li>
+        <li>Collector: jaeger-collector.monitoring.svc.cluster.local:9411 (Zipkin protocol)</li>
+        <li>Istio mesh config: extensionProviders name "jaeger" with zipkin endpoint</li>
+        <li>Telemetry: randomSamplingPercentage 100.0</li>
+        <li>Kiali uses Jaeger for trace visualization</li>
+      </ul></div></div>
+    `
+  },
+  'kiali': {
+    title: '🗺️ Kiali',
+    subtitle: 'istio-system namespace :20001',
+    body: `
+      <div class="detail-section"><div class="detail-label">Configuration</div><div class="detail-content"><ul>
+        <li>Image: quay.io/kiali/kiali:v1.87</li>
+        <li>Auth strategy: anonymous</li>
+        <li>Prometheus: http://prometheus.monitoring.svc.cluster.local:9090</li>
+        <li>Grafana: http://grafana.monitoring.svc.cluster.local:3000</li>
+        <li>Jaeger: http://jaeger-query.monitoring.svc.cluster.local:16686</li>
+        <li>Tracing provider: jaeger (HTTP, not gRPC)</li>
+        <li>Accessible namespaces: ** (all)</li>
+        <li>Resources: CPU 10m-200m, Memory 64Mi-512Mi</li>
+      </ul></div></div>
+    `
+  },
+  'db-user': {
+    title: '🗄️ user_service Database',
+    subtitle: 'MySQL — owned by User Service',
+    body: `
+      <div class="detail-section"><div class="detail-label">Connection</div><div class="detail-content">jdbc:mysql://${'{'}MYSQL_HOST:localhost}:${'{'}MYSQL_PORT:3306}/user_service</div></div>
+      <div class="detail-section"><div class="detail-label">Tables</div><div class="detail-content"><ul><li>user (userId, emailId, contactNo, authId, identificationNumber, status)</li><li>user_profile (firstName, lastName)</li></ul></div></div>
+      <div class="detail-section"><div class="detail-label">JPA config</div><div class="detail-content">ddl-auto: update · show-sql: true · format_sql: true</div></div>
+    `
+  },
+  'db-account': {
+    title: '🗄️ account_service Database',
+    subtitle: 'MySQL — owned by Account Service',
+    body: `
+      <div class="detail-section"><div class="detail-label">Connection</div><div class="detail-content">jdbc:mysql://localhost:3306/account_service (K8s: host.docker.internal)</div></div>
+      <div class="detail-section"><div class="detail-label">Tables</div><div class="detail-content"><ul><li>account (accountNumber, userId, accountType, accountStatus, availableBalance)</li></ul></div></div>
+      <div class="detail-section"><div class="detail-label">Shared by Canary</div><div class="detail-content">Both account-service v1 and account-service-v2 deployments connect to the SAME account_service schema.</div></div>
+    `
+  },
+  'db-fund': {
+    title: '🗄️ fund_transfer_service Database',
+    subtitle: 'MySQL — owned by Fund-Transfer Service',
+    body: `
+      <div class="detail-section"><div class="detail-label">Connection</div><div class="detail-content">jdbc:mysql://localhost:3306/fund_transfer_service</div></div>
+      <div class="detail-section"><div class="detail-label">Tables</div><div class="detail-content"><ul><li>fund_transfer (id, transactionReference, fromAccount, toAccount, amount, transferType, status)</li></ul></div></div>
+    `
+  },
+  'db-txn': {
+    title: '🗄️ transaction_service Database',
+    subtitle: 'MySQL — owned by Transaction Service',
+    body: `
+      <div class="detail-section"><div class="detail-label">Connection</div><div class="detail-content">jdbc:mysql://localhost:3306/transaction_service</div></div>
+      <div class="detail-section"><div class="detail-label">Tables</div><div class="detail-content"><ul><li>transaction (id, accountId, transactionType, amount, description, transactionStatus, transactionReference)</li></ul></div></div>
+    `
+  },
+  'db-seq': {
+    title: '🗄️ sequence_generator Database',
+    subtitle: 'MySQL — owned by Sequence Generator',
+    body: `
+      <div class="detail-section"><div class="detail-label">Connection</div><div class="detail-content">jdbc:mysql://localhost:3306/sequence_generator</div></div>
+      <div class="detail-section"><div class="detail-label">Tables</div><div class="detail-content"><ul><li>sequence (accountNumber BIGINT AUTO_INCREMENT)</li></ul></div></div>
+      <div class="detail-section"><div class="detail-label">Usage</div><div class="detail-content">Each POST to /sequence inserts a new row and returns the generated accountNumber. Account Service formats it as "ACC0000001".</div></div>
+    `
+  }
+};
+
+// ===================== MODAL FUNCTIONS =====================
+function showModal(id) {
+  const data = modalData[id];
+  if (!data) return;
+  document.getElementById('modal-title').textContent = data.title;
+  document.getElementById('modal-subtitle').textContent = data.subtitle;
+  document.getElementById('modal-body').innerHTML = data.body;
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('modal')) {
+    document.getElementById('modal').classList.remove('open');
+  }
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    document.getElementById('modal').classList.remove('open');
+  }
+});
+</script>
+</body>
+</html>

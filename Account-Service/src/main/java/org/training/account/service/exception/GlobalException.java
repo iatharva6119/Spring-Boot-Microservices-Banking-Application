@@ -1,6 +1,6 @@
 package org.training.account.service.exception;
 
-public class GlobalException extends RuntimeException{
+public class GlobalException extends RuntimeException {
 
     private final String errorCode;
 

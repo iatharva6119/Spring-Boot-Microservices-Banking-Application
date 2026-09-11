@@ -1,0 +1,16 @@
+﻿apiVersion: v1
+kind: Service
+metadata:
+  name: sequence-generator
+  namespace: banking
+  labels:
+    app: sequence-generator
+    app.kubernetes.io/part-of: banking-application
+spec:
+  selector:
+    app: sequence-generator
+  ports:
+  - name: http
+    port: 8083
+    targetPort: 8083
+  type: ClusterIP

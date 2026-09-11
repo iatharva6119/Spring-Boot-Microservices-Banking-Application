@@ -1,0 +1,14 @@
+﻿# ============================================================
+# Kubernetes Namespace: banking
+# ============================================================
+# This namespace groups all our banking application resources
+# together, separated from the default Kubernetes namespace
+# and from any other applications on the cluster.
+# ============================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: banking
+  labels:
+    app.kubernetes.io/part-of: banking-application
+    environment: development

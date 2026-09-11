@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Banking Application 2.0 - Verified Architecture</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg-body: #f8fafc;
+            --layer-bg: #ffffff;
+            --layer-title: #334155;
+            --node-bg: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            --node-border: #7dd3fc;
+            --node-text: #0f172a;
+            --desc-text: #475569;
+            --istio-purple: #a855f7;
+            --istio-bg: #faf5ff;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-body);
+            margin: 0;
+            padding: 40px;
+            color: var(--node-text);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 0 0 10px 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .header p {
+            color: #64748b;
+            font-size: 16px;
+            margin: 0;
+            font-weight: 500;
+        }
+
+        .diagram-container {
+            display: flex;
+            gap: 30px;
+            max-width: 1500px;
+            margin: 0 auto;
+        }
+
+        .main-architecture {
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        .side-observability {
+            flex: 1;
+        }
+
+        /* Generic Layer Container */
+        .layer-box {
+            background-color: var(--layer-bg);
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            position: relative;
+        }
+
+        .mesh-box {
+            background-color: var(--istio-bg);
+            border: 2px dashed var(--istio-purple);
+        }
+
+        .layer-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--layer-title);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .mesh-title {
+            color: var(--istio-purple);
+        }
+
+        /* Flex Layouts */
+        .flex-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 40px;
+        }
+        
+        .flex-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .grid-5 {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 20px;
+            width: 100%;
+        }
+
+        /* Nodes */
+        .node {
+            background: var(--node-bg);
+            border: 2px solid var(--node-border);
+            border-radius: 10px;
+            padding: 15px;
+            width: 100%;
+            max-width: 190px;
+            text-align: center;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .node-auth { background: linear-gradient(135deg, #f8fafc, #f1f5f9); border-color: #cbd5e1; }
+        .node-ingress { background: linear-gradient(135deg, #faf5ff, #f3e8ff); border-color: #d8b4fe; }
+        .node-monitor { background: #ffffff; border-color: #cbd5e1; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+
+        .node i {
+            font-size: 32px;
+            color: #0284c7;
+            margin-bottom: 12px;
+        }
+        
+        .node-ingress i { color: #9333ea; }
+        .node-auth i { color: #475569; }
+        .node-monitor i { color: #4f46e5; font-size: 24px; margin-bottom: 8px;}
+
+        .node h3 {
+            font-size: 13px;
+            font-weight: 700;
+            margin: 0 0 4px 0;
+            line-height: 1.2;
+            color: #1e293b;
+        }
+
+        .node .port {
+            font-size: 11px;
+            font-weight: 600;
+            color: #0369a1;
+            margin-bottom: 8px;
+        }
+
+        .node p {
+            font-size: 11px;
+            color: var(--desc-text);
+            margin: 0;
+            line-height: 1.3;
+        }
+
+        /* Badges */
+        .sidecar-badge {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            color: #475569;
+            padding: 4px 8px;
+            margin-top: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .sidecar-badge i {
+            font-size: 12px !important;
+            color: #a855f7 !important;
+            margin: 0 !important;
+        }
+        
+        .canary-badge-container {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        
+        .badge {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 6px;
+            border-radius: 4px;
+            color: white;
+        }
+        .badge.v1 { background-color: #3b82f6; }
+        .badge.v2 { background-color: #8b5cf6; }
+
+        /* Databases */
+        .db-node {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            text-align: center;
+        }
+        
+        .db-node i {
+            font-size: 42px;
+            color: #3b82f6;
+            filter: drop-shadow(0 4px 3px rgba(0,0,0,0.1));
+        }
+        
+        .db-node h3 {
+            font-size: 12px;
+            font-weight: 700;
+            color: #1e293b;
+            margin: 0;
+        }
+        
+        .db-node p {
+            font-size: 11px;
+            color: #64748b;
+            margin: 0;
+        }
+
+        /* Pure CSS Flow Arrows */
+        .arrow-right {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #94a3b8;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .arrow-right::after {
+            content: '\f30b';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            font-size: 18px;
+        }
+        
+        .arrow-down {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #94a3b8;
+            font-size: 18px;
+            margin: 15px 0;
+        }
+        
+        .connection-line {
+            width: 2px;
+            height: 25px;
+            background-color: #cbd5e1;
+        }
+
+        .monitor-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Banking Application 2.0</h1>
+        <p>Verified Kubernetes, Istio & Observability Architecture</p>
+    </div>
+
+    <div class="diagram-container">
+        <!-- Main Architecture -->
+        <div class="main-architecture">
+            
+            <!-- External Clients & IAM -->
+            <div class="layer-box flex-row">
+                <div class="node node-auth">
+                    <i class="fa-solid fa-desktop"></i>
+                    <h3>EXTERNAL CLIENT</h3>
+                    <p>Postman / K6 Tests</p>
+                </div>
+                
+                <div class="arrow-right">Auth / JWT</div>
+                
+                <div class="node node-auth">
+                    <i class="fa-solid fa-lock"></i>
+                    <h3>KEYCLOAK</h3>
+                    <div class="port">Port: 8571</div>
+                    <p>OAuth2 Identity Provider</p>
+                </div>
+            </div>
+
+            <!-- Istio Service Mesh Box -->
+            <div class="layer-box mesh-box">
+                <div class="layer-title mesh-title">
+                    <i class="fa-solid fa-network-wired"></i>
+                    ISTIO SERVICE MESH (ISTIO_MUTUAL mTLS SECURED)
+                </div>
+
+                <!-- Gateways -->
+                <div class="flex-row" style="margin-bottom: 40px;">
+                    <div class="node node-ingress">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <h3>ISTIO INGRESS</h3>
+                        <p>Envoy Proxy Edge</p>
+                    </div>
+                    
+                    <div class="arrow-right">Routes to</div>
+                    
+                    <div class="node">
+                        <i class="fa-solid fa-microchip"></i>
+                        <h3>API GATEWAY</h3>
+                        <div class="port">Port: 8080</div>
+                        <p>Spring Cloud Gateway</p>
+                        <div class="sidecar-badge"><i class="fa-solid fa-cube"></i> Envoy Sidecar</div>
+                    </div>
+
+                    <div class="arrow-right">Discovery</div>
+
+                    <div class="node node-auth">
+                        <i class="fa-solid fa-globe"></i>
+                        <h3>NETFLIX EUREKA</h3>
+                        <div class="port">Port: 8761</div>
+                        <p>Service Registry (lb://)</p>
+                    </div>
+                </div>
+
+                <!-- Business Services & Databases vertically aligned -->
+                <div class="layer-title" style="margin-bottom: 20px;">
+                    <i class="fa-solid fa-server"></i> BUSINESS SERVICES & DATA LAYER
+                </div>
+                
+                <div class="grid-5">
+                    
+                    <!-- User Service Col -->
+                    <div class="flex-col">
+                        <div class="node">
+                            <i class="fa-solid fa-users"></i>
+                            <h3>USER SERVICE</h3>
+                            <div class="port">Port: 8082</div>
+                            <div class="sidecar-badge"><i class="fa-solid fa-cube"></i> Envoy Sidecar</div>
+                        </div>
+                        <div class="arrow-down"><i class="fa-solid fa-arrow-down-long"></i></div>
+                        <div class="db-node">
+                            <i class="fa-solid fa-database"></i>
+                            <h3>USER</h3>
+                            <p>(MySQL)</p>
+                        </div>
+                    </div>
+
+                    <!-- Account Service Col (Canary) -->
+                    <div class="flex-col">
+                        <div class="node" style="border-width: 3px; border-color: #8b5cf6;">
+                            <i class="fa-solid fa-wallet" style="color: #8b5cf6;"></i>
+                            <h3>ACCOUNT SERVICE</h3>
+                            <div class="port">Port: 8081</div>
+                            <div class="canary-badge-container">
+                                <span class="badge v1">v1 (50%)</span>
+                                <span class="badge v2">v2 (50%)</span>
+                            </div>
+                            <div class="sidecar-badge"><i class="fa-solid fa-cube"></i> Envoy Sidecar</div>
+                        </div>
+                        <div class="arrow-down"><i class="fa-solid fa-arrow-down-long"></i></div>
+                        <div class="db-node">
+                            <i class="fa-solid fa-database"></i>
+                            <h3>ACCOUNT</h3>
+                            <p>(MySQL)</p>
+                        </div>
+                    </div>
+
+                    <!-- Sequence Generator Col -->
+                    <div class="flex-col">
+                        <div class="node">
+                            <i class="fa-solid fa-list-ol"></i>
+                            <h3>SEQUENCE GEN</h3>
+                            <div class="port">Port: 8083</div>
+                            <div class="sidecar-badge"><i class="fa-solid fa-cube"></i> Envoy Sidecar</div>
+                        </div>
+                        <div class="arrow-down"><i class="fa-solid fa-arrow-down-long"></i></div>
+                        <div class="db-node">
+                            <i class="fa-solid fa-database"></i>
+                            <h3>SEQUENCE</h3>
+                            <p>(MySQL)</p>
+                        </div>
+                    </div>
+
+                    <!-- Transaction Svc Col -->
+                    <div class="flex-col">
+                        <div class="node">
+                            <i class="fa-solid fa-money-bill-transfer"></i>
+                            <h3>TRANSACTION SVC</h3>
+                            <div class="port">Port: 8084</div>
+                            <div class="sidecar-badge"><i class="fa-solid fa-cube"></i> Envoy Sidecar</div>
+                        </div>
+                        <div class="arrow-down"><i class="fa-solid fa-arrow-down-long"></i></div>
+                        <div class="db-node">
+                            <i class="fa-solid fa-database"></i>
+                            <h3>TRANSACTION</h3>
+                            <p>(MySQL)</p>
+                        </div>
+                    </div>
+
+                    <!-- Fund Transfer Col -->
+                    <div class="flex-col">
+                        <div class="node">
+                            <i class="fa-solid fa-money-check-dollar"></i>
+                            <h3>FUND TRANSFER</h3>
+                            <div class="port">Port: 8085</div>
+                            <div class="sidecar-badge"><i class="fa-solid fa-cube"></i> Envoy Sidecar</div>
+                        </div>
+                        <div class="arrow-down"><i class="fa-solid fa-arrow-down-long"></i></div>
+                        <div class="db-node">
+                            <i class="fa-solid fa-database"></i>
+                            <h3>FUND TRANSFER</h3>
+                            <p>(MySQL)</p>
+                        </div>
+                    </div>
+
+                </div> <!-- End Grid -->
+            </div> <!-- End Mesh Box -->
+
+        </div> <!-- End Main Arch -->
+
+        <!-- Side Observability Stack -->
+        <div class="side-observability">
+            <div class="layer-box" style="height: 100%; box-sizing: border-box;">
+                <div class="layer-title">
+                    <i class="fa-solid fa-satellite-dish"></i> K8S OBSERVABILITY STACK
+                </div>
+                
+                <div class="monitor-grid">
+                    
+                    <div class="node node-monitor">
+                        <i class="fa-solid fa-chart-bar"></i>
+                        <h3>PROMETHEUS</h3>
+                        <p>Metrics Storage</p>
+                    </div>
+                    
+                    <div class="node node-monitor">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <h3>GRAFANA</h3>
+                        <p>Visual Dashboards</p>
+                    </div>
+
+                    <div class="node node-monitor">
+                        <i class="fa-solid fa-route"></i>
+                        <h3>JAEGER</h3>
+                        <p>Distributed Traces</p>
+                    </div>
+
+                    <div class="node node-monitor">
+                        <i class="fa-solid fa-project-diagram"></i>
+                        <h3>KIALI</h3>
+                        <p>Service Mesh UI</p>
+                    </div>
+
+                    <div class="node node-monitor">
+                        <i class="fa-solid fa-file-lines"></i>
+                        <h3>FLUENT-BIT</h3>
+                        <p>Log Forwarder</p>
+                    </div>
+
+                    <div class="node node-monitor">
+                        <i class="fa-solid fa-server"></i>
+                        <h3>LOKI</h3>
+                        <p>Log Aggregation</p>
+                    </div>
+                    
+                    <div class="node node-monitor" style="grid-column: span 2; max-width: none;">
+                        <i class="fa-brands fa-docker" style="color: #0ea5e9;"></i>
+                        <h3>cADVISOR / KUBE-STATE-METRICS</h3>
+                        <p>Container & K8s Cluster State Metrics</p>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 25px; font-size: 12px; color: #64748b; line-height: 1.5; padding: 15px; background: #f8fafc; border-radius: 8px;">
+                    <strong>Note:</strong> All monitoring components are actively deployed in the cluster and scrape metrics/logs/traces securely from the Istio service mesh and application sidecars.
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,23 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: user-service-route
+  namespace: banking
+spec:
+  hosts:
+  - user-service.banking.svc.cluster.local
+  - user-service
+  http:
+  - fault:
+      abort:
+        httpStatus: 503
+        percentage:
+          value: 100
+    route:
+    - destination:
+        host: user-service.banking.svc.cluster.local
+    timeout: 5s
+    retries:
+      attempts: 2
+      perTryTimeout: 2s
+      retryOn: connect-failure,refused-stream,503

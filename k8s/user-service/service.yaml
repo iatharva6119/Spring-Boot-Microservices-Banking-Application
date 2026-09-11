@@ -1,0 +1,22 @@
+﻿# ============================================================
+# Service: user-service
+# ============================================================
+# ClusterIP: only accessible inside the cluster.
+# The API Gateway routes /api/users/** to this service via Eureka.
+# ============================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: banking
+  labels:
+    app: user-service
+    app.kubernetes.io/part-of: banking-application
+spec:
+  selector:
+    app: user-service
+  ports:
+  - name: http
+    port: 8082
+    targetPort: 8082
+  type: ClusterIP

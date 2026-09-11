@@ -1,0 +1,34 @@
+# ============================================================
+# ConfigMap: banking-config
+# Common non-sensitive configuration for all banking services
+# ============================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: banking-config
+  namespace: banking
+  labels:
+    app.kubernetes.io/part-of: banking-application
+data:
+  # Eureka Service Registry URL
+  # 'service-registry' is the Kubernetes Service name for Eureka
+  # Kubernetes DNS resolves this name to the Eureka pod's ClusterIP
+  EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "http://service-registry:8761/eureka/"
+
+  # Register with pod IP address (not hostname) so Feign can reach pods directly
+  EUREKA_INSTANCE_PREFERIPADDRESS: "true"
+
+  # Prometheus histogram metrics for HTTP requests (performance engineering)
+  MANAGEMENT_METRICS_DISTRIBUTION_PERCENTILESHISTOGRAM_HTTP_SERVER_REQUESTS: "true"
+
+  # MySQL host — host.docker.internal resolves to Windows host (192.168.65.254)
+  MYSQL_HOST: "host.docker.internal"
+  MYSQL_PORT: "3306"
+
+  # Keycloak base URL — also on Windows host, port 8571
+  APP_CONFIG_KEYCLOAK_INTERNAL_URL: "http://host.docker.internal:8571"
+  APP_CONFIG_KEYCLOAK_EXTERNAL_URL: "http://localhost:8571"
+  APP_CONFIG_KEYCLOAK_SERVER_URL: "http://host.docker.internal:8571"
+
+  # OpenTelemetry — Jaeger collector endpoint (Zipkin-compatible)
+  OTEL_EXPORTER_ZIPKIN_ENDPOINT: "http://jaeger-collector.monitoring.svc.cluster.local:9411/api/v2/spans"

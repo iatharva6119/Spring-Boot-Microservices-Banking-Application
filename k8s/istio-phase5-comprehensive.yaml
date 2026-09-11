@@ -1,0 +1,256 @@
+# 1. API-Gateway
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: api-gateway-destination
+  namespace: banking
+spec:
+  host: api-gateway.banking.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 10s
+      baseEjectionTime: 30s
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: api-gateway-route
+  namespace: banking
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - banking-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: api-gateway.banking.svc.cluster.local
+        port:
+          number: 8080
+    timeout: 15s
+
+---
+# 2. User-Service
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: user-service-destination
+  namespace: banking
+spec:
+  host: user-service.banking.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+    loadBalancer:
+      simple: ROUND_ROBIN
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 10s
+      baseEjectionTime: 30s
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: user-service-route
+  namespace: banking
+spec:
+  hosts:
+  - user-service.banking.svc.cluster.local
+  http:
+  - match:
+    - method:
+        exact: GET
+    route:
+    - destination:
+        host: user-service.banking.svc.cluster.local
+    timeout: 5s
+    retries:
+      attempts: 2
+      perTryTimeout: 2s
+      retryOn: connect-failure,refused-stream,503
+  - route:
+    - destination:
+        host: user-service.banking.svc.cluster.local
+    timeout: 5s
+
+---
+# 3. Account-Service
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: account-service-destination
+  namespace: banking
+spec:
+  host: account-service.banking.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 10s
+      baseEjectionTime: 30s
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+  - name: v2
+    labels:
+      version: v2
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: account-service-route
+  namespace: banking
+spec:
+  hosts:
+  - account-service.banking.svc.cluster.local
+  http:
+  - match:
+    - method:
+        exact: GET
+    route:
+    - destination:
+        host: account-service.banking.svc.cluster.local
+        subset: v1
+      weight: 50
+    - destination:
+        host: account-service.banking.svc.cluster.local
+        subset: v2
+      weight: 50
+    timeout: 5s
+    retries:
+      attempts: 2
+      perTryTimeout: 2s
+      retryOn: connect-failure,refused-stream,503
+  - route:
+    - destination:
+        host: account-service.banking.svc.cluster.local
+        subset: v1
+      weight: 50
+    - destination:
+        host: account-service.banking.svc.cluster.local
+        subset: v2
+      weight: 50
+    timeout: 5s
+
+---
+# 4. Fund-Transfer
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: fund-transfer-destination
+  namespace: banking
+spec:
+  host: fund-transfer.banking.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 10s
+      baseEjectionTime: 30s
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: fund-transfer-route
+  namespace: banking
+spec:
+  hosts:
+  - fund-transfer.banking.svc.cluster.local
+  http:
+  - match:
+    - method:
+        exact: GET
+    route:
+    - destination:
+        host: fund-transfer.banking.svc.cluster.local
+    timeout: 5s
+    retries:
+      attempts: 2
+      perTryTimeout: 2s
+      retryOn: connect-failure,refused-stream,503
+  - route:
+    - destination:
+        host: fund-transfer.banking.svc.cluster.local
+    timeout: 10s
+
+---
+# 5. Transaction-Service
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: transaction-service-destination
+  namespace: banking
+spec:
+  host: transaction-service.banking.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 10s
+      baseEjectionTime: 30s
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: transaction-service-route
+  namespace: banking
+spec:
+  hosts:
+  - transaction-service.banking.svc.cluster.local
+  http:
+  - match:
+    - method:
+        exact: GET
+    route:
+    - destination:
+        host: transaction-service.banking.svc.cluster.local
+    timeout: 5s
+    retries:
+      attempts: 2
+      perTryTimeout: 2s
+      retryOn: connect-failure,refused-stream,503
+  - route:
+    - destination:
+        host: transaction-service.banking.svc.cluster.local
+    timeout: 10s
+
+---
+# 6. Sequence-Generator
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: sequence-generator-destination
+  namespace: banking
+spec:
+  host: sequence-generator.banking.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 10s
+      baseEjectionTime: 30s
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: sequence-generator-route
+  namespace: banking
+spec:
+  hosts:
+  - sequence-generator.banking.svc.cluster.local
+  http:
+  - route:
+    - destination:
+        host: sequence-generator.banking.svc.cluster.local
+    timeout: 3s
